@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { UploadComponent } from '../components/UploadComponent';
 import { FileText, ArrowLeft, Loader2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { SummaryView } from '../components/SummaryView';
+import { LinkedInView } from '../components/LinkedInView';
+
+
 
 interface Source {
   _id: string;
@@ -20,12 +24,19 @@ interface Project {
   createdAt: string;
 }
 
+interface GeneratedResult {
+  content: Record<string, unknown>;
+  audit: { status: string; groundedness_score?: number };
+}
+
 export const ProjectDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [generatingSourceId, setGeneratingSourceId] = useState<string | null>(null);
+  const [generatedResults, setGeneratedResults] = useState<Record<string, GeneratedResult> | null>(null);
 
   const fetchProjectDetails = async () => {
     try {
@@ -44,6 +55,23 @@ export const ProjectDetails = () => {
   useEffect(() => {
     fetchProjectDetails();
   }, [id]);
+
+  const generateContent = async (source: Source) => {
+    setGeneratingSourceId(source._id);
+    setError(null);
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_API_URL}/projects/${id}/generate`,
+        { sourceId: source._id, targetFormats: ['summary', 'linkedin'] },
+        { withCredentials: true }
+      );
+      setGeneratedResults(data.results);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Content generation failed');
+    } finally {
+      setGeneratingSourceId(null);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -89,6 +117,16 @@ export const ProjectDetails = () => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      {source.mimeType === 'application/pdf' && (
+                        <button
+                          type="button"
+                          onClick={() => generateContent(source)}
+                          disabled={generatingSourceId !== null}
+                          className="text-xs font-medium text-white px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {generatingSourceId === source._id ? 'Generating...' : 'Generate'}
+                        </button>
+                      )}
                       <span className="text-xs font-medium text-gray-600 px-2 py-1 bg-gray-100 rounded-full flex items-center">
                         {getStatusIcon(source.status)}
                         <span className="ml-1">{source.status}</span>
@@ -108,6 +146,40 @@ export const ProjectDetails = () => {
           </div>
         </div>
       </div>
+
+      {generatedResults && (
+        <div className="bg-white border rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-bold mb-4">Generated Content</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {Object.entries(generatedResults).map(([format, result]) => (
+              <article key={format} className="border rounded-md p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold capitalize">{format}</h3>
+                  <span className="text-xs text-gray-500">
+                    Groundedness: {Math.round((result.audit.groundedness_score || 0) * 100)}%
+                  </span>
+                </div>
+                {/* <pre className="whitespace-pre-wrap text-sm text-gray-700 overflow-auto max-h-96">
+                  {JSON.stringify(result.content, null, 2)}
+                </pre> */}
+
+                <div className="mt-4">
+                    {format === 'summary' ? (
+                        <SummaryView data={result.content} />
+                          ) : format === 'linkedin' ? (
+                              <LinkedInView data={result.content} />
+                         ) : (
+                            /* Fallback for any other future formats like 'video_script' */
+                           <pre className="whitespace-pre-wrap text-sm text-gray-700 overflow-auto max-h-96">
+                              {JSON.stringify(result.content, null, 2)}
+                           </pre>
+                          )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

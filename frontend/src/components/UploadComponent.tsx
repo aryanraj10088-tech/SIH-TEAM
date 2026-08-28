@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 interface UploadComponentProps {
