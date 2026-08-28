@@ -1,3 +1,5 @@
+.env
+*.env
 ai-service/.env
 ai-service/.venv/
 ai-service/venv/

@@ -79,3 +79,42 @@ export const uploadSource = async (req: Request, res: Response): Promise<void> =
     res.status(500).json({ message: 'Error uploading file' });
   }
 };
+
+export const deleteSource = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: projectId, sourceId } = req.params;
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    if (project.ownerId.toString() !== req.user?._id.toString()) {
+      res.status(403).json({ message: 'Not authorized' });
+      return;
+    }
+
+    const source = await Source.findOne({ _id: sourceId, projectId: project._id });
+    if (!source) {
+      res.status(404).json({ message: 'Source not found' });
+      return;
+    }
+
+    // Delete from storage
+    try {
+      await storageService.deleteFile(source.storageKey);
+    } catch (s3Error) {
+      console.error('S3 Delete Error:', s3Error);
+      // Even if S3 delete fails (e.g., file already gone), we should still remove DB record
+    }
+
+    // Delete from DB
+    await Source.findByIdAndDelete(source._id);
+
+    res.status(200).json({ message: 'Source deleted successfully' });
+  } catch (error) {
+    console.error('Delete Source Error:', error);
+    res.status(500).json({ message: 'Error deleting source' });
+  }
+};

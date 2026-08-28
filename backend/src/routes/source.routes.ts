@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { uploadSource } from '../controllers/source.controller';
+import { uploadSource, deleteSource } from '../controllers/source.controller';
 import { protect } from '../middlewares/auth.middleware';
 
 const router = Router({ mergeParams: true }); // Merge params to access projectId from parent route
@@ -16,5 +16,6 @@ const upload = multer({
 router.use(protect);
 
 router.post('/', upload.single('file'), uploadSource);
+router.delete('/:sourceId', deleteSource);
 
 export default router;

@@ -1,4 +1,4 @@
-﻿import os
+import os
 import asyncio
 from google import genai
 from pydantic import BaseModel

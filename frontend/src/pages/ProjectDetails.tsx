@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { UploadComponent } from '../components/UploadComponent';
-import { FileText, ArrowLeft, Loader2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { FileText, ArrowLeft, Loader2, CheckCircle, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import { SummaryView } from '../components/SummaryView';
 import { LinkedInView } from '../components/LinkedInView';
 
@@ -73,6 +73,20 @@ export const ProjectDetails = () => {
     }
   };
 
+  const deleteSource = async (sourceId: string) => {
+    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    
+    setError(null);
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/projects/${id}/sources/${sourceId}`, {
+        withCredentials: true,
+      });
+      fetchProjectDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete file');
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'PROCESSED': return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -131,6 +145,13 @@ export const ProjectDetails = () => {
                         {getStatusIcon(source.status)}
                         <span className="ml-1">{source.status}</span>
                       </span>
+                      <button 
+                        onClick={() => deleteSource(source._id)}
+                        className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+                        title="Delete file"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
