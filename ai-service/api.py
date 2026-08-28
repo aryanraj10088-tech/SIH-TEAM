@@ -18,6 +18,11 @@ logger = logging.getLogger("nexus-ai")
 class GenerateRequest(BaseModel):
     source_url: str = Field(min_length=1)
     target_formats: list[str] = Field(min_length=1)
+    audience: str | None = None
+    tone: str | None = None
+    detail_level: str | None = None
+    objective: str | None = None
+    language: str | None = None
 
 
 def download_source(source_url: str, destination: Path) -> None:
@@ -66,7 +71,15 @@ async def generate(request: GenerateRequest) -> dict:
             context = rag_store.search(
                 "Summarize the key objectives and main points.", top_k=5
             )
-            generated = await generate_all_formats(context, request.target_formats)
+            generated = await generate_all_formats(
+                context,
+                request.target_formats,
+                audience=request.audience,
+                tone=request.tone,
+                detail_level=request.detail_level,
+                objective=request.objective,
+                language=request.language,
+            )
 
             results = {}
             for output_format, output in generated.items():

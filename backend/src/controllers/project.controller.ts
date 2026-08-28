@@ -62,9 +62,14 @@ export const getProjectDetails = async (req: Request, res: Response): Promise<vo
 
 export const generateProjectContent = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { sourceId, targetFormats } = req.body as {
+    const { sourceId, targetFormats, audience, tone, detailLevel, objective, language } = req.body as {
       sourceId?: string;
       targetFormats?: string[];
+      audience?: string;
+      tone?: string;
+      detailLevel?: string;
+      objective?: string;
+      language?: string;
     };
     if (!mongoose.isValidObjectId(req.params.id) || (sourceId && !mongoose.isValidObjectId(sourceId))) {
       res.status(400).json({ message: 'Invalid project or source ID' });
@@ -99,7 +104,16 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
     const aiResponse = await fetch(`${AI_SERVICE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source_url: sourceUrl, target_formats: targetFormats }),
+      body: JSON.stringify({
+        source_url: sourceUrl,
+        target_formats: targetFormats,
+        audience,
+        tone,
+        detail_level: detailLevel,
+        objective,
+        language,
+      }),
+      signal: AbortSignal.timeout(120000),
     });
     const payload = await aiResponse.json() as { detail?: string; results?: unknown; status?: string };
     if (!aiResponse.ok) {
