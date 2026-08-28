@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
+from google.genai.errors import ClientError
 from pydantic import BaseModel, Field
 
 from ingestion.extractor import extract_content
@@ -90,6 +91,17 @@ async def generate(request: GenerateRequest) -> dict:
             return {"status": "review_pending", "results": results}
         except HTTPException:
             raise
+        except ClientError as error:
+            if getattr(error, "code", None) == 429:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        "Gemini API quota exceeded. Wait for the quota to reset, "
+                        "use a different API key, or enable billing for the project."
+                    ),
+                ) from error
+            logger.exception("Gemini API request failed: %s", error)
+            raise HTTPException(status_code=502, detail="Gemini API request failed") from error
         except Exception as error:
             logger.exception("Generation pipeline failed: %s", error)
             raise HTTPException(status_code=502, detail="Generation pipeline failed") from error
