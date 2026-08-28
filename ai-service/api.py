@@ -1,4 +1,4 @@
-﻿import os
+import os
 import tempfile
 import logging
 from pathlib import Path
@@ -15,9 +15,19 @@ app = FastAPI(title="NEXUS AI Orchestrator")
 logger = logging.getLogger("nexus-ai")
 
 
+from typing import Optional
+
+class GenerationConfig(BaseModel):
+    audience: Optional[str] = None
+    tone: Optional[str] = None
+    detail: Optional[str] = None
+    objective: Optional[str] = None
+    language: Optional[str] = None
+
 class GenerateRequest(BaseModel):
     source_url: str = Field(min_length=1)
     target_formats: list[str] = Field(min_length=1)
+    config: Optional[GenerationConfig] = None
 
 
 def download_source(source_url: str, destination: Path) -> None:
@@ -38,7 +48,7 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/api/generate")
 async def generate(request: GenerateRequest) -> dict:
-    supported_formats = {"summary", "linkedin", "video"}
+    supported_formats = {"summary", "linkedin", "video", "advisory"}
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 
@@ -66,7 +76,7 @@ async def generate(request: GenerateRequest) -> dict:
             context = rag_store.search(
                 "Summarize the key objectives and main points.", top_k=5
             )
-            generated = await generate_all_formats(context, request.target_formats)
+            generated = await generate_all_formats(context, request.target_formats, request.config)
 
             results = {}
             for output_format, output in generated.items():
@@ -79,4 +89,5 @@ async def generate(request: GenerateRequest) -> dict:
             raise
         except Exception as error:
             logger.exception("Generation pipeline failed: %s", error)
-            raise HTTPException(status_code=502, detail="Generation pipeline failed") from error
+            # Pass the actual underlying error so the user can see exactly what failed
+            raise HTTPException(status_code=502, detail=f"Generation pipeline failed: {str(error)}") from error

@@ -1,9 +1,10 @@
-﻿import { useRef } from 'react';
+import { useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Download } from 'lucide-react'; // Icon library
 
 export const SummaryView = ({ data }: { data: any }) => {
+  if (!data) return null;
   const printRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPdf = async () => {
@@ -36,14 +37,16 @@ export const SummaryView = ({ data }: { data: any }) => {
 
       {/* This is the area that gets printed to the PDF */}
       <div ref={printRef} className="p-8 bg-white">
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-6 border-b pb-4">
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600 mb-6 border-b pb-4">
           {data.headline}
         </h1>
-        <ul className="space-y-4">
-          {data.key_points.map((point: string, index: number) => (
-            <li key={index} className="flex gap-3 items-start text-gray-700 leading-relaxed text-lg">
-              <span className="text-blue-500 font-bold">â€¢</span>
-              <span>{point}</span>
+        <ul className="space-y-4 mt-6">
+          {(data.key_points || []).map((point: string, index: number) => (
+            <li key={index} className="bg-gray-50/80 border border-gray-100 rounded-xl p-5 flex gap-4 items-start shadow-sm hover:shadow-md transition duration-300">
+              <div className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0 mt-0.5 shadow-sm">
+                {index + 1}
+              </div>
+              <span className="text-gray-800 leading-relaxed text-base pt-0.5 font-medium">{point}</span>
             </li>
           ))}
         </ul>

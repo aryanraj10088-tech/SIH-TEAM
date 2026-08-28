@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProjects, createProject, getProjectDetails, generateProjectContent } from '../controllers/project.controller';
+import { getProjects, createProject, getProjectDetails } from '../controllers/project.controller';
 import { protect } from '../middlewares/auth.middleware';
 
 const router = Router();
@@ -12,7 +12,5 @@ router.route('/')
 
 router.route('/:id')
   .get(getProjectDetails);
-
-router.post('/:id/generate', generateProjectContent);
 
 export default router;

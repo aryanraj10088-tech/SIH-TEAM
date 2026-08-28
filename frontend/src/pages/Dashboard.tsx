@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { LayoutDashboard, LogOut, Users, FolderOpen } from 'lucide-react';
+import { Rocket, FileText, Zap, BarChart3, Plus, FolderOpen } from 'lucide-react';
 
 interface User {
   name: string;
@@ -30,86 +30,88 @@ const Dashboard = () => {
     fetchUser();
   }, [navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/auth/logout`, {}, { withCredentials: true });
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout failed', error);
-    }
-  };
+  // Logout handle removed, now in Navbar
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r">
-        <div className="flex items-center justify-center h-16 border-b">
-          <span className="text-xl font-bold text-gray-800">SrijanSetu</span>
+    <div className="flex flex-col space-y-8 p-4 sm:p-8 max-w-6xl mx-auto min-h-screen">
+      
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 p-8 sm:p-12 shadow-lg">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 opacity-10">
+          <Rocket className="w-64 h-64 text-white transform rotate-45" />
         </div>
-        <nav className="p-4 space-y-2">
-          <Link to="/dashboard" className="flex items-center px-4 py-2 text-gray-700 bg-gray-100 rounded">
-            <LayoutDashboard className="w-5 h-5 mr-3" />
-            Dashboard
-          </Link>
-          <Link to="/projects" className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded">
-            <FolderOpen className="w-5 h-5 mr-3" />
-            Projects
-          </Link>
-          {user?.role === 'Administrator' && (
-            <a href="#" className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded">
-              <Users className="w-5 h-5 mr-3" />
-              Administration
-            </a>
-          )}
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="flex items-center justify-between h-16 px-6 bg-white border-b">
-          <h1 className="text-xl font-semibold text-gray-800">Overview</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              {user?.name} ({user?.role})
-            </span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center px-3 py-1 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50"
+        <div className="relative z-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+            Welcome back, {user?.name?.split(' ')[0] || 'Creator'}! 👋
+          </h1>
+          <p className="text-blue-100 text-lg max-w-2xl mb-8 leading-relaxed">
+            Ready to transform your content today? Create a new workspace or jump back into your recent projects to instantly generate executive summaries, LinkedIn posts, and compliance advisories.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <Link 
+              to="/projects" 
+              className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-6 py-3 rounded-lg shadow-sm transition-all flex items-center gap-2 hover:scale-105"
             >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </button>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 bg-white border rounded shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Total Projects</h3>
-              <p className="mt-2 text-3xl font-semibold text-gray-800">0</p>
-            </div>
-            <div className="p-6 bg-white border rounded shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Sources Ingested</h3>
-              <p className="mt-2 text-3xl font-semibold text-gray-800">0</p>
-            </div>
-            <div className="p-6 bg-white border rounded shadow-sm">
-              <h3 className="text-sm font-medium text-gray-500">Generated Outputs</h3>
-              <p className="mt-2 text-3xl font-semibold text-gray-800">0</p>
-            </div>
-          </div>
-
-          <div className="p-6 bg-white border rounded shadow-sm min-h-[400px]">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Recent Activity</h2>
-            <div className="flex items-center justify-center h-64 text-gray-500 border-2 border-dashed rounded bg-gray-50">
-              No recent activity found.
-            </div>
+              <Plus className="w-5 h-5" />
+              New Project
+            </Link>
+            <Link 
+              to="/projects" 
+              className="bg-blue-700/50 hover:bg-blue-700/70 text-white font-medium px-6 py-3 rounded-lg border border-blue-500/50 backdrop-blur-sm transition-all"
+            >
+              View Workspaces
+            </Link>
           </div>
         </div>
-      </main>
+      </div>
+
+      {/* Dashboard Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow group flex items-start gap-4">
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+            <FolderOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Projects</h3>
+            <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">0</p>
+          </div>
+        </div>
+
+        <div className="p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow group flex items-start gap-4">
+          <div className="p-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+            <FileText className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Sources Ingested</h3>
+            <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">0</p>
+          </div>
+        </div>
+
+        <div className="p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow group flex items-start gap-4">
+          <div className="p-3 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg group-hover:scale-110 transition-transform">
+            <Zap className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Generated Outputs</h3>
+            <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">0</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm min-h-[300px]">
+        <div className="flex items-center gap-2 mb-6">
+          <BarChart3 className="w-5 h-5 text-gray-400" />
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent Activity</h2>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center h-48 text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-900/50">
+          <p>No recent activity found.</p>
+          <p className="text-sm mt-1 opacity-75">Your latest generations and uploads will appear here.</p>
+        </div>
+      </div>
     </div>
   );
 };

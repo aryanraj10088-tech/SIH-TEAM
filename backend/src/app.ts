@@ -39,12 +39,14 @@ if (process.env.NODE_ENV === 'development') {
 
 import projectRoutes from './routes/project.routes';
 import sourceRoutes from './routes/source.routes';
+import generationRoutes from './routes/generation.routes';
 
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projects/:id/sources', sourceRoutes);
+app.use('/api/generation', generationRoutes);
 
 // Error Handling
 app.use(notFound);
