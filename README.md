@@ -5,7 +5,7 @@ Phase 1 MVP - Foundation
 ## Architecture
 - Frontend: React + TypeScript + Vite + Tailwind CSS
 - Backend: Node.js + Express + TypeScript + MongoDB
-- AI Service: Python (Planned)
+- AI Service: Python FastAPI (`ai-service/`)
 - Worker: (Planned)
 
 ## Requirements
@@ -16,7 +16,7 @@ Phase 1 MVP - Foundation
 1. Start MongoDB via Docker: `docker-compose up -d`
 2. Backend: `cd backend && npm run dev`
 3. Frontend: `cd frontend && npm run dev`
-4. AI service: `cd ../WinningProject && .\venv\Scripts\python.exe -m uvicorn api:app --host 127.0.0.1 --port 8000`
+4. AI service: `cd ai-service && .\.venv\Scripts\Activate.ps1 && python -m uvicorn api:app --host 127.0.0.1 --port 8000`
 
 The backend owns authentication, projects, and private source storage. The AI service owns
 document extraction, sanitization, RAG, generation, and citation validation. When a user
