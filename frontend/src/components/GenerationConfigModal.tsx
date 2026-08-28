@@ -1,4 +1,4 @@
-// src/components/GenerationConfigModal.tsx
+﻿// src/components/GenerationConfigModal.tsx
 import React, { useState } from 'react';
 import { Sliders, X } from 'lucide-react';
 
@@ -29,7 +29,7 @@ export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGene
   if (!isOpen) return null;
 
   const toggleFormat = (format: string) => {
-    setTargetFormats(prev => 
+    setTargetFormats(prev =>
       prev.includes(format) ? prev.filter(f => f !== format) : [...prev, format]
     );
   };
@@ -108,10 +108,10 @@ export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGene
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Core Objective</label>
-            <input 
+            <input
               type="text"
-              value={objective} 
-              onChange={e => setObjective(e.target.value)} 
+              value={objective}
+              onChange={e => setObjective(e.target.value)}
               placeholder="e.g. Risk analysis for hackathon submission"
               className="w-full border rounded-lg p-2 text-sm"
             />
