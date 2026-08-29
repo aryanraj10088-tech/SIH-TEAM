@@ -11,6 +11,33 @@ const ALLOWED_MIME_TYPES = [
   'text/plain',
 ];
 
+export const getSources = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    // Allow project owner and reviewers/admins to view sources
+    const isOwner = project.ownerId.toString() === req.user?._id.toString();
+    const isReviewerOrAdmin = ['Reviewer', 'Administrator'].includes(req.user?.role || '');
+    
+    if (!isOwner && !isReviewerOrAdmin) {
+      res.status(403).json({ message: 'Not authorized to view sources for this project' });
+      return;
+    }
+
+    const sources = await Source.find({ projectId }).sort({ createdAt: -1 });
+    res.status(200).json(sources);
+  } catch (error) {
+    console.error('Get Sources Error:', error);
+    res.status(500).json({ message: 'Error fetching sources' });
+  }
+};
+
 export const uploadSource = async (req: Request, res: Response): Promise<void> => {
   try {
     const projectId = req.params.id;

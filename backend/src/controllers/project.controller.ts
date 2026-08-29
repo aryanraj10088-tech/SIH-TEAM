@@ -6,9 +6,12 @@ import { storageService } from '../services/storage/s3.storage';
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
+const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].includes(role || '');
+
 export const getProjects = async (req: Request, res: Response): Promise<void> => {
   try {
-    const projects = await Project.find({ ownerId: req.user?._id }).sort({ updatedAt: -1 });
+    const filter = isReviewerOrAdmin(req.user?.role) ? {} : { ownerId: req.user?._id };
+    const projects = await Project.find(filter).sort({ updatedAt: -1 });
     res.status(200).json(projects);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching projects' });
@@ -45,8 +48,9 @@ export const getProjectDetails = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // IDOR protection: ensure the logged-in user owns this project
-    if (project.ownerId.toString() !== req.user?._id.toString()) {
+    // Reviewers and administrators can access project details for review workflows.
+    const canAccess = project.ownerId.toString() === req.user?._id.toString() || isReviewerOrAdmin(req.user?.role);
+    if (!canAccess) {
       res.status(403).json({ message: 'Not authorized to access this project' });
       return;
     }

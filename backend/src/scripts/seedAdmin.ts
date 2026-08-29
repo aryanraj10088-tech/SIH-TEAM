@@ -60,6 +60,27 @@ const seedAdmin = async () => {
       }
     }
 
+    // Seed Reviewer if variables are present
+    const { TEST_REVIEWER_EMAIL, TEST_REVIEWER_PASSWORD } = process.env;
+    if (TEST_REVIEWER_EMAIL && TEST_REVIEWER_PASSWORD) {
+      const reviewerHashedPassword = await bcrypt.hash(TEST_REVIEWER_PASSWORD, salt);
+      const reviewerExists = await User.findOne({ email: TEST_REVIEWER_EMAIL });
+      
+      if (reviewerExists) {
+        reviewerExists.passwordHash = reviewerHashedPassword;
+        await reviewerExists.save();
+        console.log('⚠️ Reviewer user already existed. Password has been forcefully updated.');
+      } else {
+        const reviewer = await User.create({
+          name: 'Test Reviewer',
+          email: TEST_REVIEWER_EMAIL,
+          passwordHash: reviewerHashedPassword,
+          role: 'Reviewer',
+        });
+        console.log(`✅ Reviewer account created successfully for: ${reviewer.email}`);
+      }
+    }
+
     process.exit(0);
   } catch (error) {
     console.error('❌ Seeding failed:', error);
