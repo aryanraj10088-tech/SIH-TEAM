@@ -10,6 +10,7 @@ import healthRoutes from './routes/health.routes';
 import { notFound, errorHandler } from './middlewares/error.middleware';
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Security Middleware
 app.use(helmet());
