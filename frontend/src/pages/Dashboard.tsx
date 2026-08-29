@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Rocket, FileText, Zap, BarChart3, Plus, FolderOpen, Clock, CheckCircle, FileUp, MessageSquare, Eye } from 'lucide-react';
-
-interface User {
-  name: string;
-  email: string;
-  role: string;
-}
+import { FileText, Zap, BarChart3, FolderOpen, Clock, CheckCircle, FileUp, MessageSquare, Eye } from 'lucide-react';
 
 interface Activity {
   _id: string;
@@ -18,7 +12,6 @@ interface Activity {
 }
 
 const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [projectCount, setProjectCount] = useState(0);
   const [sourceCount, setSourceCount] = useState(0);
@@ -29,12 +22,6 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch user
-        const { data: userData } = await axios.get(`${import.meta.env.VITE_API_URL}/auth/me`, {
-          withCredentials: true,
-        });
-        setUser(userData);
-
         // Fetch projects
         const { data: projectsData } = await axios.get(`${import.meta.env.VITE_API_URL}/projects`, {
           withCredentials: true,
