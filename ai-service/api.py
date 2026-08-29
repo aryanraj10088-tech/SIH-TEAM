@@ -5,7 +5,6 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
-from google.genai.errors import ClientError
 from pydantic import BaseModel, Field
 
 from ingestion.extractor import extract_content
