@@ -15,8 +15,7 @@ logger = logging.getLogger("groq-provider")
 class GroqProvider(BaseLLMProvider):
     DEFAULT_MODELS = [
         "openai/gpt-oss-20b",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
+        "openai/gpt-oss-120b"
     ]
 
     def __init__(self):
@@ -115,7 +114,7 @@ class GroqProvider(BaseLLMProvider):
                     ):
                         logger.info(f"[{model_name}] Model unavailable, trying next...")
                         continue
-                    logger.info(f"[{model_name}] Validation failed, trying next model...")
+                    logger.info(f"[{model_name}] Validation failed. Error was: {str(exc)}. Trying next model...")
                     continue
 
             raise last_error or RuntimeError("No Groq model was available for this request.")

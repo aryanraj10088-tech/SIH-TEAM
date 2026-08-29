@@ -1,6 +1,6 @@
-﻿// src/components/GenerationConfigModal.tsx
+// src/components/GenerationConfigModal.tsx
 import React, { useState } from 'react';
-import { Sliders, X } from 'lucide-react';
+import { Sparkles, X, FileText, Film, Users, MessageSquare, BarChart2, Globe, Target, Loader2, ExternalLink } from 'lucide-react';
 
 export interface GenerationConfig {
   targetFormats: string[];
@@ -17,6 +17,12 @@ interface Props {
   onGenerate: (config: GenerationConfig) => void;
   isGenerating: boolean;
 }
+
+const FORMAT_OPTIONS = [
+  { id: 'summary', label: 'Summary', icon: FileText },
+  { id: 'linkedin', label: 'LinkedIn', icon: ExternalLink },
+  { id: 'video', label: 'Video Script', icon: Film },
+];
 
 export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGenerate, isGenerating }) => {
   const [targetFormats, setTargetFormats] = useState<string[]>(['summary', 'linkedin']);
@@ -39,90 +45,140 @@ export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGene
     onGenerate({ targetFormats, audience, tone, detailLevel, objective, language });
   };
 
+  const selectClass = "w-full bg-gray-100 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all";
+  const labelClass = "flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5";
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-bold">Configure Generation</h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700/80 rounded-2xl max-w-lg w-full shadow-2xl shadow-black/20">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
+              <Sparkles className="w-4.5 h-4.5 text-white w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Configure Generation</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Set your output preferences</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          
+          {/* Output Formats */}
           <div>
-            <label className="block text-sm font-semibold mb-2">Output Formats</label>
-            <div className="flex gap-2">
-              {['summary', 'video', 'linkedin'].map(fmt => (
+            <label className={labelClass}>
+              <BarChart2 className="w-3.5 h-3.5" /> Output Formats
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {FORMAT_OPTIONS.map(({ id, label, icon: Icon }) => (
                 <button
                   type="button"
-                  key={fmt}
-                  onClick={() => toggleFormat(fmt)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border capitalize ${
-                    targetFormats.includes(fmt) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-300'
+                  key={id}
+                  onClick={() => toggleFormat(id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-150 ${
+                    targetFormats.includes(id)
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20'
+                      : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-400 dark:hover:border-indigo-500'
                   }`}
                 >
-                  {fmt}
+                  <Icon className="w-4 h-4" />
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Audience & Tone */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Target Audience</label>
-              <select value={audience} onChange={e => setAudience(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+              <label className={labelClass}>
+                <Users className="w-3.5 h-3.5" /> Target Audience
+              </label>
+              <select value={audience} onChange={e => setAudience(e.target.value)} className={selectClass}>
                 <option>Executive</option>
                 <option>Technical Team</option>
                 <option>General Public</option>
+                <option>Policy Makers</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Tone</label>
-              <select value={tone} onChange={e => setTone(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+              <label className={labelClass}>
+                <MessageSquare className="w-3.5 h-3.5" /> Tone
+              </label>
+              <select value={tone} onChange={e => setTone(e.target.value)} className={selectClass}>
                 <option>Professional</option>
                 <option>Persuasive</option>
                 <option>Urgent / Critical</option>
+                <option>Informative</option>
               </select>
             </div>
           </div>
 
+          {/* Detail Level & Language */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Detail Level</label>
-              <select value={detailLevel} onChange={e => setDetailLevel(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+              <label className={labelClass}>
+                <BarChart2 className="w-3.5 h-3.5" /> Detail Level
+              </label>
+              <select value={detailLevel} onChange={e => setDetailLevel(e.target.value)} className={selectClass}>
                 <option>Brief</option>
                 <option>Standard</option>
                 <option>In-Depth</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Language</label>
-              <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+              <label className={labelClass}>
+                <Globe className="w-3.5 h-3.5" /> Language
+              </label>
+              <select value={language} onChange={e => setLanguage(e.target.value)} className={selectClass}>
                 <option>English</option>
                 <option>Hindi</option>
+                <option>Tamil</option>
+                <option>Bengali</option>
               </select>
             </div>
           </div>
 
+          {/* Core Objective */}
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Core Objective</label>
+            <label className={labelClass}>
+              <Target className="w-3.5 h-3.5" /> Core Objective
+            </label>
             <input
               type="text"
               value={objective}
               onChange={e => setObjective(e.target.value)}
-              placeholder="e.g. Risk analysis for hackathon submission"
-              className="w-full border rounded-lg p-2 text-sm"
+              placeholder="e.g. Risk analysis for board presentation"
+              className={selectClass}
             />
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={isGenerating || targetFormats.length === 0}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition mt-4"
+            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 mt-2"
           >
-            {isGenerating ? 'Firing Pipeline...' : 'Generate Selected Outputs'}
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Running AI Pipeline...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Generate {targetFormats.length > 0 ? `${targetFormats.length} Output${targetFormats.length > 1 ? 's' : ''}` : 'Outputs'}
+              </>
+            )}
           </button>
         </form>
       </div>

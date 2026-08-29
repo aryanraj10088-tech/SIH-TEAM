@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Project from '../models/Project';
 import Source from '../models/Source';
+import GeneratedOutput from '../models/GeneratedOutput';
+import AuditLog from '../models/AuditLog';
 import { storageService } from '../services/storage/s3.storage';
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
@@ -64,6 +66,93 @@ export const getProjectDetails = async (req: Request, res: Response): Promise<vo
   }
 };
 
+export const deleteProject = async (req: Request, res: Response): Promise<void> => {
+  let session;
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    const isOwner = project.ownerId.toString() === req.user?._id.toString();
+    const isAdmin = req.user?.role === 'Administrator';
+
+    if (!isOwner && !isAdmin) {
+      res.status(403).json({ message: 'Not authorized to delete this project' });
+      return;
+    }
+
+    const sources = await Source.find({ projectId: project._id });
+    
+    // We attempt a transaction for safe DB cleanup.
+    // Note: If MongoDB is standalone (no replica set), transactions will throw an error.
+    // We will catch that and fallback to non-transactional deletion.
+    let useTransaction = true;
+    try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+    } catch (e) {
+      useTransaction = false;
+    }
+
+    try {
+      const options = useTransaction ? { session } : {};
+      
+      // Cascade delete DB records
+      await Source.deleteMany({ projectId: project._id }, options);
+      await GeneratedOutput.deleteMany({ projectId: project._id }, options);
+      await Project.findByIdAndDelete(project._id, options);
+
+      // Add audit log for accountability
+      await AuditLog.create([{
+        entityType: 'Project',
+        entityId: project._id,
+        action: 'PROJECT_DELETED',
+        performedBy: req.user?._id,
+        metadata: {
+          projectTitle: project.title,
+          sourcesDeleted: sources.length
+        }
+      }], options);
+
+      if (useTransaction) {
+        await session!.commitTransaction();
+      }
+    } catch (dbError) {
+      if (useTransaction) {
+        await session!.abortTransaction();
+      }
+      throw dbError;
+    } finally {
+      if (useTransaction) {
+        session!.endSession();
+      }
+    }
+
+    // Storage deletion happens AFTER successful DB commit to prevent data loss if DB fails.
+    // Orphaned files in S3 are preferable to inconsistent DB state.
+    for (const source of sources) {
+      try {
+        if (source.storageKey) {
+          await storageService.deleteFile(source.storageKey);
+        }
+      } catch (err) {
+        console.error(`Failed to delete file ${source.storageKey} from storage:`, err);
+        // We log the error but don't fail the request since the DB is already clean.
+      }
+    }
+
+    res.status(200).json({ message: 'Project deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete Project Error:', error);
+    try {
+      require('fs').writeFileSync('C:/Users/aryan/.gemini/antigravity-ide/brain/9bf56efc-2960-4fb5-85e6-59634dda89ab/scratch/delete_error.log', (error.stack || error.message || String(error)));
+    } catch(e) {}
+    res.status(500).json({ message: 'Error deleting project', error: error.message });
+  }
+};
+
 export const generateProjectContent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { sourceId, targetFormats, audience, tone, detailLevel, objective, language } = req.body as {
@@ -85,7 +174,9 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
       res.status(404).json({ message: 'Project not found' });
       return;
     }
-    if (project.ownerId.toString() !== req.user?._id.toString()) {
+    const isAdmin = req.user?.role === 'Administrator';
+    const canGenerate = project.ownerId.toString() === req.user?._id.toString() || isAdmin;
+    if (!canGenerate) {
       res.status(403).json({ message: 'Not authorized to generate content for this project' });
       return;
     }

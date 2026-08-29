@@ -1,10 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-<<<<<<< Updated upstream
-import { uploadSource } from '../controllers/source.controller';
-=======
 import { getSources, uploadSource, deleteSource } from '../controllers/source.controller';
->>>>>>> Stashed changes
 import { protect } from '../middlewares/auth.middleware';
 
 const router = Router({ mergeParams: true }); // Merge params to access projectId from parent route

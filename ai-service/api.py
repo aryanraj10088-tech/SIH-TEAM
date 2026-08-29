@@ -1,4 +1,4 @@
-﻿import os
+import os
 import tempfile
 import logging
 from pathlib import Path
@@ -12,8 +12,8 @@ from ingestion.extractor import extract_content
 from ingestion.sanitizer import sanitize_text
 from security.guardrails import PromptGuard
 
-app = FastAPI(title="NEXUS AI Orchestrator")
-logger = logging.getLogger("nexus-ai")
+app = FastAPI(title="SrijanSetu AI Orchestrator")
+logger = logging.getLogger("srijansetu-ai")
 
 
 class GenerateRequest(BaseModel):
@@ -27,7 +27,7 @@ class GenerateRequest(BaseModel):
 
 
 def download_source(source_url: str, destination: Path) -> None:
-    request = Request(source_url, headers={"User-Agent": "NEXUS-AI-Service/1.0"})
+    request = Request(source_url, headers={"User-Agent": "SrijanSetu-AI-Service/1.0"})
     with urlopen(request, timeout=60) as response, destination.open("wb") as output:
         total = 0
         while chunk := response.read(1024 * 1024):
@@ -39,7 +39,7 @@ def download_source(source_url: str, destination: Path) -> None:
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    return {"status": "online", "service": "nexus-ai-orchestrator"}
+    return {"status": "online", "service": "srijansetu-ai-orchestrator"}
 
 
 @app.post("/api/generate")
@@ -48,7 +48,7 @@ async def generate(request: GenerateRequest) -> dict:
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 
-    with tempfile.TemporaryDirectory(prefix="nexus-source-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="srijansetu-source-") as temp_dir:
         source_path = Path(temp_dir) / "source.pdf"
         try:
             download_source(request.source_url, source_path)

@@ -24,14 +24,14 @@ export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove,
   };
 
   return (
-    <div className="bg-gray-50 border-t p-4 rounded-b-lg flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-200 dark:border-gray-700 p-4 rounded-b-xl flex flex-col md:flex-row items-center justify-between gap-4">
       {/* Groundedness Audit Trail */}
       <div className="flex items-center gap-3">
-        <ShieldCheck className={`w-5 h-5 ${audit.groundedness_score && audit.groundedness_score >= 0.8 ? 'text-green-600' : 'text-amber-500'}`} />
+        <ShieldCheck className={`w-5 h-5 ${audit.groundedness_score && audit.groundedness_score >= 0.8 ? 'text-green-500' : 'text-amber-500'}`} />
         <div>
-          <p className="text-xs font-semibold text-gray-700">Audit Verification</p>
-          <p className="text-xs text-gray-500">
-            Groundedness: <span className="font-bold">{Math.round((audit.groundedness_score || 0) * 100)}%</span>
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Audit Verification</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Groundedness: <span className="font-bold text-gray-800 dark:text-gray-200">{Math.round((audit.groundedness_score || 0) * 100)}%</span>
           </p>
         </div>
       </div>
@@ -44,14 +44,14 @@ export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove,
             placeholder="Add reviewer notes..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 border rounded-md bg-white"
+            className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
           />
           <MessageSquare className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
         </div>
 
         <button
           onClick={() => handleAction('APPROVE')}
-          className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
             status === 'APPROVED' ? 'bg-green-700 text-white' : 'bg-green-600 text-white hover:bg-green-700'
           }`}
         >
@@ -60,8 +60,8 @@ export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove,
 
         <button
           onClick={() => handleAction('REJECT')}
-          className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1 ${
-            status === 'REJECTED' ? 'bg-red-700 text-white' : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
+            status === 'REJECTED' ? 'bg-red-700 text-white' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40'
           }`}
         >
           <XCircle size={14} /> Reject
