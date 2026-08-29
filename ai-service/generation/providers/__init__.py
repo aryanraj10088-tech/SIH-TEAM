@@ -1,4 +1,4 @@
 from .base import BaseLLMProvider
-from .gemini import GeminiProvider
+from .groq import GroqProvider
 
-__all__ = ["BaseLLMProvider", "GeminiProvider"]
+__all__ = ["BaseLLMProvider", "GroqProvider"]

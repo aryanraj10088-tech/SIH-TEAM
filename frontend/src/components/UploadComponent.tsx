@@ -79,18 +79,18 @@ export const UploadComponent: React.FC<UploadComponentProps> = ({ projectId, onU
       <div 
         {...getRootProps()} 
         className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-          ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 bg-gray-50/50 dark:bg-gray-800/50'}
+          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
           ${uploading ? 'opacity-50 pointer-events-none' : ''}
         `}
       >
         <input {...getInputProps()} />
         <UploadCloud className="w-12 h-12 mx-auto text-gray-400 mb-4" />
         {isDragActive ? (
-          <p className="text-blue-500 dark:text-blue-400 font-medium">Drop the file here ...</p>
+          <p className="text-blue-500 font-medium">Drop the file here ...</p>
         ) : (
           <div>
-            <p className="text-gray-600 dark:text-gray-300 font-medium">Drag & drop a file here, or click to select</p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Supports PDF, DOCX, TXT (Max 10MB)</p>
+            <p className="text-gray-600 font-medium">Drag & drop a file here, or click to select</p>
+            <p className="text-gray-400 text-sm mt-2">Supports PDF, DOCX, TXT (Max 10MB)</p>
           </div>
         )}
       </div>
@@ -98,8 +98,8 @@ export const UploadComponent: React.FC<UploadComponentProps> = ({ projectId, onU
       {uploading && (
         <div className="mt-4">
           <div className="flex justify-between text-sm mb-1">
-            <span className="text-gray-600 dark:text-gray-400">Uploading...</span>
-            <span className="text-gray-600 dark:text-gray-400">{progress}%</span>
+            <span className="text-gray-600">Uploading...</span>
+            <span className="text-gray-600">{progress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${progress}%` }}></div>
@@ -108,7 +108,7 @@ export const UploadComponent: React.FC<UploadComponentProps> = ({ projectId, onU
       )}
 
       {error && (
-        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md flex items-center text-sm border border-red-100 dark:border-red-900/50">
+        <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md flex items-center text-sm">
           <AlertCircle className="w-4 h-4 mr-2" />
           {error}
         </div>

@@ -5,33 +5,29 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
+from google.genai.errors import ClientError
 from pydantic import BaseModel, Field
 
 from ingestion.extractor import extract_content
 from ingestion.sanitizer import sanitize_text
 from security.guardrails import PromptGuard
 
-app = FastAPI(title="NEXUS AI Orchestrator")
-logger = logging.getLogger("nexus-ai")
+app = FastAPI(title="SrijanSetu AI Orchestrator")
+logger = logging.getLogger("srijansetu-ai")
 
-
-from typing import Optional
-
-class GenerationConfig(BaseModel):
-    audience: Optional[str] = None
-    tone: Optional[str] = None
-    detail: Optional[str] = None
-    objective: Optional[str] = None
-    language: Optional[str] = None
 
 class GenerateRequest(BaseModel):
     source_url: str = Field(min_length=1)
     target_formats: list[str] = Field(min_length=1)
-    config: Optional[GenerationConfig] = None
+    audience: str | None = None
+    tone: str | None = None
+    detail_level: str | None = None
+    objective: str | None = None
+    language: str | None = None
 
 
 def download_source(source_url: str, destination: Path) -> None:
-    request = Request(source_url, headers={"User-Agent": "NEXUS-AI-Service/1.0"})
+    request = Request(source_url, headers={"User-Agent": "SrijanSetu-AI-Service/1.0"})
     with urlopen(request, timeout=60) as response, destination.open("wb") as output:
         total = 0
         while chunk := response.read(1024 * 1024):
@@ -43,16 +39,16 @@ def download_source(source_url: str, destination: Path) -> None:
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    return {"status": "online", "service": "nexus-ai-orchestrator"}
+    return {"status": "online", "service": "srijansetu-ai-orchestrator"}
 
 
 @app.post("/api/generate")
 async def generate(request: GenerateRequest) -> dict:
-    supported_formats = {"summary", "linkedin", "video", "advisory"}
+    supported_formats = {"summary", "linkedin", "video"}
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 
-    with tempfile.TemporaryDirectory(prefix="nexus-source-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="srijansetu-source-") as temp_dir:
         source_path = Path(temp_dir) / "source.pdf"
         try:
             download_source(request.source_url, source_path)
@@ -76,7 +72,15 @@ async def generate(request: GenerateRequest) -> dict:
             context = rag_store.search(
                 "Summarize the key objectives and main points.", top_k=5
             )
-            generated = await generate_all_formats(context, request.target_formats, request.config)
+            generated = await generate_all_formats(
+                context,
+                request.target_formats,
+                audience=request.audience,
+                tone=request.tone,
+                detail_level=request.detail_level,
+                objective=request.objective,
+                language=request.language,
+            )
 
             results = {}
             for output_format, output in generated.items():
@@ -87,7 +91,17 @@ async def generate(request: GenerateRequest) -> dict:
             return {"status": "review_pending", "results": results}
         except HTTPException:
             raise
+        except ClientError as error:
+            if getattr(error, "code", None) == 429:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        "Gemini API quota exceeded. Wait for the quota to reset, "
+                        "use a different API key, or enable billing for the project."
+                    ),
+                ) from error
+            logger.exception("Gemini API request failed: %s", error)
+            raise HTTPException(status_code=502, detail="Gemini API request failed") from error
         except Exception as error:
             logger.exception("Generation pipeline failed: %s", error)
-            # Pass the actual underlying error so the user can see exactly what failed
-            raise HTTPException(status_code=502, detail=f"Generation pipeline failed: {str(error)}") from error
+            raise HTTPException(status_code=502, detail="Generation pipeline failed") from error

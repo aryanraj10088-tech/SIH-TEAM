@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon, LogOut, LayoutDashboard, FolderOpen, User } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [isDark, setIsDark] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout, user, loading } = useAuth();
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -21,6 +23,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       document.documentElement.classList.remove('dark');
     }
   }, []);
+
+  // Protect routes that are wrapped in Layout
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login');
+    }
+  }, [user, loading, navigate]);
 
   const toggleTheme = () => {
     if (isDark) {
@@ -44,6 +53,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Logout failed', error);
     }
+    await logout();
+    navigate('/login');
   };
 
   return (

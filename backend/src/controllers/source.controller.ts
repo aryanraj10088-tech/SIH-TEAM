@@ -11,6 +11,33 @@ const ALLOWED_MIME_TYPES = [
   'text/plain',
 ];
 
+export const getSources = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    // Allow project owner and reviewers/admins to view sources
+    const isOwner = project.ownerId.toString() === req.user?._id.toString();
+    const isReviewerOrAdmin = ['Reviewer', 'Administrator'].includes(req.user?.role || '');
+    
+    if (!isOwner && !isReviewerOrAdmin) {
+      res.status(403).json({ message: 'Not authorized to view sources for this project' });
+      return;
+    }
+
+    const sources = await Source.find({ projectId }).sort({ createdAt: -1 });
+    res.status(200).json(sources);
+  } catch (error) {
+    console.error('Get Sources Error:', error);
+    res.status(500).json({ message: 'Error fetching sources' });
+  }
+};
+
 export const uploadSource = async (req: Request, res: Response): Promise<void> => {
   try {
     const projectId = req.params.id;
@@ -77,44 +104,5 @@ export const uploadSource = async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     console.error('Upload Error:', error);
     res.status(500).json({ message: 'Error uploading file' });
-  }
-};
-
-export const deleteSource = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id: projectId, sourceId } = req.params;
-    const project = await Project.findById(projectId);
-
-    if (!project) {
-      res.status(404).json({ message: 'Project not found' });
-      return;
-    }
-
-    if (project.ownerId.toString() !== req.user?._id.toString()) {
-      res.status(403).json({ message: 'Not authorized' });
-      return;
-    }
-
-    const source = await Source.findOne({ _id: sourceId, projectId: project._id });
-    if (!source) {
-      res.status(404).json({ message: 'Source not found' });
-      return;
-    }
-
-    // Delete from storage
-    try {
-      await storageService.deleteFile(source.storageKey);
-    } catch (s3Error) {
-      console.error('S3 Delete Error:', s3Error);
-      // Even if S3 delete fails (e.g., file already gone), we should still remove DB record
-    }
-
-    // Delete from DB
-    await Source.findByIdAndDelete(source._id);
-
-    res.status(200).json({ message: 'Source deleted successfully' });
-  } catch (error) {
-    console.error('Delete Source Error:', error);
-    res.status(500).json({ message: 'Error deleting source' });
   }
 };

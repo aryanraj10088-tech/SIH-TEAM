@@ -16,7 +16,11 @@ export const generationService = {
       body: JSON.stringify({ 
         source_url: sourceUrl, 
         target_formats: targetFormats, 
-        config 
+        audience: config?.audience,
+        tone: config?.tone,
+        detail_level: config?.detail,
+        objective: config?.objective,
+        language: config?.language
       }),
     });
     

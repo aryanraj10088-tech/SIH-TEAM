@@ -1,10 +1,22 @@
 import os
-from google import genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-print("AVAILABLE MODELS:")
-for model in client.models.list():
-    print(model.name)
+print("CHECKING GROQ MODELS:")
+for model in [
+    "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]:
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Say hi in one word."}],
+            max_tokens=5,
+        )
+        print(f"SUCCESS: {model} -> {response.choices[0].message.content.strip()}")
+    except Exception as exc:
+        print(f"FAILED: {model} - {str(exc)[:150]}")
