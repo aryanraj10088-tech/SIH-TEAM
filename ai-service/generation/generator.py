@@ -159,13 +159,10 @@ async def generate_all_formats(
         tasks["video"] = generate_single_format(prompt, VideoPackageOutput)
 
     keys = list(tasks.keys())
-    results = []
-    
-    for task in tasks.values():
-        try:
-            results.append(await task)
-            await asyncio.sleep(1)  # Shorter delay between calls
-        except Exception as e:
-            raise e
+    try:
+        # Run all LLM generation tasks concurrently
+        results = await asyncio.gather(*tasks.values())
+    except Exception as e:
+        raise e
 
     return dict(zip(keys, results))

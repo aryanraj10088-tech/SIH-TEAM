@@ -123,9 +123,36 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto w-full transition-colors duration-300">
+      <main className="max-w-7xl mx-auto w-full transition-colors duration-300 pb-20 md:pb-0">
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 z-50 w-full bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe transition-colors duration-300">
+        <div className="flex justify-around items-center h-16">
+          <Link 
+            to="/dashboard" 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Dashboard</span>
+          </Link>
+          <Link 
+            to="/projects" 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname.startsWith('/projects') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+          >
+            <FolderOpen className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Projects</span>
+          </Link>
+          <Link 
+            to="/profile" 
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/profile' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Profile</span>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 };

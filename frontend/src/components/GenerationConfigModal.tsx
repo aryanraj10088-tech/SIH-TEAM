@@ -1,6 +1,6 @@
 // src/components/GenerationConfigModal.tsx
 import React, { useState } from 'react';
-import { Sparkles, X, FileText, Film, Users, MessageSquare, BarChart2, Globe, Target, Loader2, ExternalLink } from 'lucide-react';
+import { Sparkles, X, FileText, Film, Users, MessageSquare, BarChart2, Globe, Target, Loader2, ExternalLink, ShieldAlert } from 'lucide-react';
 
 export interface GenerationConfig {
   targetFormats: string[];
@@ -16,15 +16,17 @@ interface Props {
   onClose: () => void;
   onGenerate: (config: GenerationConfig) => void;
   isGenerating: boolean;
+  generationStatus?: string | null;
 }
 
 const FORMAT_OPTIONS = [
   { id: 'summary', label: 'Summary', icon: FileText },
   { id: 'linkedin', label: 'LinkedIn', icon: ExternalLink },
   { id: 'video', label: 'Video Script', icon: Film },
+  { id: 'advisory', label: 'Advisory', icon: ShieldAlert },
 ];
 
-export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGenerate, isGenerating }) => {
+export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGenerate, isGenerating, generationStatus }) => {
   const [targetFormats, setTargetFormats] = useState<string[]>(['summary', 'linkedin']);
   const [audience, setAudience] = useState('Executive');
   const [tone, setTone] = useState('Professional');
@@ -171,7 +173,7 @@ export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGene
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Running AI Pipeline...
+                {generationStatus || 'Running AI Pipeline...'}
               </>
             ) : (
               <>

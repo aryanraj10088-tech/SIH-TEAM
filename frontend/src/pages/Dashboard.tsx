@@ -28,17 +28,17 @@ const Dashboard = () => {
         });
         setProjectCount(projectsData.length);
 
-        // Fetch sources and outputs for all projects
-        let totalSources = 0;
-        let totalOutputs = 0;
+        // Fetch sources and outputs for all projects concurrently
+        const projectPromises = projectsData.map(async (project: any) => {
+          let pSources = 0;
+          let pOutputs = 0;
 
-        for (const project of projectsData) {
           try {
             const { data: sourcesData } = await axios.get(
               `${import.meta.env.VITE_API_URL}/projects/${project._id}/sources`,
               { withCredentials: true }
             );
-            totalSources += sourcesData.length;
+            pSources = sourcesData.length;
           } catch (err) {
             console.error(`Failed to fetch sources for project ${project._id}`, err);
           }
@@ -48,11 +48,22 @@ const Dashboard = () => {
               `${import.meta.env.VITE_API_URL}/outputs?projectId=${project._id}`,
               { withCredentials: true }
             );
-            totalOutputs += outputsData.length;
+            pOutputs = outputsData.length;
           } catch (err) {
             console.error(`Failed to fetch outputs for project ${project._id}`, err);
           }
-        }
+
+          return { sources: pSources, outputs: pOutputs };
+        });
+
+        const results = await Promise.all(projectPromises);
+        
+        let totalSources = 0;
+        let totalOutputs = 0;
+        results.forEach(res => {
+          totalSources += res.sources;
+          totalOutputs += res.outputs;
+        });
 
         setSourceCount(totalSources);
         setOutputCount(totalOutputs);
@@ -67,9 +78,11 @@ const Dashboard = () => {
         } catch (err) {
           console.error('Failed to fetch recent activity', err);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch dashboard data', error);
-        navigate('/login');
+        if (error.response?.status === 401) {
+          navigate('/login');
+        }
       } finally {
         setLoading(false);
       }

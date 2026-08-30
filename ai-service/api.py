@@ -43,7 +43,7 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/api/generate")
 async def generate(request: GenerateRequest) -> dict:
-    supported_formats = {"summary", "linkedin", "video"}
+    supported_formats = {"summary", "linkedin", "video", "advisory"}
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 
@@ -90,17 +90,13 @@ async def generate(request: GenerateRequest) -> dict:
             return {"status": "review_pending", "results": results}
         except HTTPException:
             raise
-        except ClientError as error:
-            if getattr(error, "code", None) == 429:
+        except Exception as error:
+            if hasattr(error, "status_code") and getattr(error, "status_code") == 429:
                 raise HTTPException(
                     status_code=429,
                     detail=(
-                        "Gemini API quota exceeded. Wait for the quota to reset, "
-                        "use a different API key, or enable billing for the project."
+                        "Groq API quota exceeded. Wait for the quota to reset."
                     ),
-                ) from error
-            logger.exception("Gemini API request failed: %s", error)
-            raise HTTPException(status_code=502, detail="Gemini API request failed") from error
-        except Exception as error:
+                )
             logger.exception("Generation pipeline failed: %s", error)
-            raise HTTPException(status_code=502, detail="Generation pipeline failed") from error
+            raise HTTPException(status_code=502, detail=f"Generation pipeline failed: {str(error)}")

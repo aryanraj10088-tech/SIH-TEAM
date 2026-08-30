@@ -39,6 +39,7 @@ export const ProjectDetails = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [generatingSourceId, setGeneratingSourceId] = useState<string | null>(null);
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [generatedResults, setGeneratedResults] = useState<Record<string, GeneratedResult> | null>(null);
   const [activeTab, setActiveTab] = useState<'sources' | 'outputs'>('sources');
   const [selectedSourceForGeneration, setSelectedSourceForGeneration] = useState<Source | null>(null);
@@ -64,35 +65,59 @@ export const ProjectDetails = () => {
 
   const executeGeneration = async (configFromModal: GenerationConfig) => {
     if (!selectedSourceForGeneration) return;
-    setGeneratingSourceId(selectedSourceForGeneration._id);
+    const sourceId = selectedSourceForGeneration._id;
+    setGeneratingSourceId(sourceId);
+    setGenerationStatus('Analyzing Source Document...');
     setError(null);
 
     const { targetFormats, audience, tone, detailLevel, objective, language } = configFromModal;
 
-    try {
-      const { data } = await axios.post(
-        `${import.meta.env.VITE_API_URL}/projects/${id}/generate`,
-        {
-          sourceId: selectedSourceForGeneration._id,
-          targetFormats,
-          audience,
-          tone,
-          detailLevel,
-          objective,
-          language,
-        },
-        { withCredentials: true }
-      );
+    const attemptGeneration = async (retryCount = 0): Promise<void> => {
+      try {
+        if (retryCount > 0) {
+          setGenerationStatus(`Waking up AI Service... (Attempt ${retryCount + 1}/3)`);
+        } else {
+          setGenerationStatus('Generating Outputs (Waiting for backend)...');
+        }
 
-      setGeneratedResults(data.results);
-      setSelectedSourceForGeneration(null);
-      setIsConfigOpen(false);
-      setActiveTab('outputs');
+        const { data } = await axios.post(
+          `${import.meta.env.VITE_API_URL}/projects/${id}/generate`,
+          {
+            sourceId,
+            targetFormats,
+            audience,
+            tone,
+            detailLevel,
+            objective,
+            language,
+          },
+          { withCredentials: true, timeout: 120000 } // Wait up to 120s for Render free tier proxy
+        );
+
+        setGeneratedResults(data.results);
+        setSelectedSourceForGeneration(null);
+        setIsConfigOpen(false);
+        setActiveTab('outputs');
+      } catch (err: any) {
+        // If timeout, 502, or 504, the AI service might be waking up
+        const isNetworkError = !err.response || err.response.status === 504 || err.response.status === 502 || err.code === 'ECONNABORTED';
+        if (isNetworkError && retryCount < 2) {
+          setGenerationStatus('AI Service is starting up. Retrying in 10s...');
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          return attemptGeneration(retryCount + 1);
+        }
+        throw err;
+      }
+    };
+
+    try {
+      await attemptGeneration();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Content generation failed');
+      setError(err.response?.data?.message || err.message || 'Content generation failed');
     } finally {
       setGeneratingSourceId(null);
-      setIsConfigOpen(false);
+      setGenerationStatus(null);
+      // setIsConfigOpen(false); // Only close on success, or user can manually close on error
     }
   };
 
@@ -276,6 +301,7 @@ export const ProjectDetails = () => {
         onClose={() => setIsConfigOpen(false)}
         onGenerate={executeGeneration}
         isGenerating={generatingSourceId !== null}
+        generationStatus={generationStatus}
       />
     </div>
   );
