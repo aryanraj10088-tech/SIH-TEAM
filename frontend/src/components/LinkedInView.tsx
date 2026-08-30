@@ -1,7 +1,10 @@
 import { Copy, ExternalLink } from 'lucide-react';
 
 export const LinkedInView = ({ data }: { data: any }) => {
-  const mainText = data.post_text || data.text || data.content || "";
+  const hook = data.hook || "";
+  const body = data.body || "";
+  const fallback = data.post_text || data.text || data.content || "";
+  const mainText = hook || body ? `${hook}\n\n${body}`.trim() : fallback;
   const hashtags = data.hashtags || [];
   const imagePrompts = data.image_prompts || [];
 
