@@ -16,15 +16,20 @@ const checkProjectOwnership = async (projectId: string, userId: string | undefin
   return { project, error: null };
 };
 
-// Helper for read access: reviewers/admins can view pending review tasks even when they are not the owner.
+// Helper for read access: reviewers/admins can view pending review tasks if assigned to project.
 const checkProjectReadAccess = async (projectId: string, userId: string | undefined, userRole?: string) => {
   if (!userId) return { error: 'Not authenticated', status: 401 };
   const project = await Project.findById(projectId);
   if (!project) return { error: 'Project not found', status: 404 };
 
-  if (project.ownerId.toString() === userId || isReviewerOrAdmin(userRole)) {
-    return { project, error: null };
+  if (userRole === 'Administrator') return { project, error: null };
+  if (userRole === 'Reviewer') {
+    if (project.assignedReviewers?.some(id => id.toString() === userId)) return { project, error: null };
   }
+  if (userRole === 'Viewer') {
+    if (project.assignedViewers?.some(id => id.toString() === userId)) return { project, error: null };
+  }
+  if (project.ownerId.toString() === userId) return { project, error: null };
 
   return { error: 'Not authorized for this project', status: 403 };
 };
@@ -177,6 +182,11 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    if (output.status !== 'DRAFT') {
+      res.status(400).json({ message: 'Only DRAFT outputs can be submitted for review' });
+      return;
+    }
+
     output.status = 'PENDING_REVIEW';
     await output.save();
 
@@ -203,7 +213,8 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const { error, status } = await checkProjectOwnership(output.projectId.toString(), req.user?._id?.toString());
+    // Reviewers/Admins with read access can add comments. Owners can add comments too.
+    const { error, status } = await checkProjectReadAccess(output.projectId.toString(), req.user?._id?.toString(), req.user?.role);
     if (error) {
       res.status(status as number).json({ message: error });
       return;
@@ -250,14 +261,22 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const isReviewer = isReviewerOrAdmin(req.user?.role);
+    // Ensure Reviewer/Admin has read access to the project
+    const { error: readError, status: readStatus } = await checkProjectReadAccess(output.projectId.toString(), req.user?._id?.toString(), req.user?.role);
+    if (readError) {
+      res.status(readStatus as number).json({ message: readError });
+      return;
+    }
 
-    if (!isReviewer) {
-      const { error, status } = await checkProjectOwnership(output.projectId.toString(), req.user?._id?.toString());
-      if (error) {
-        res.status(status as number).json({ message: error });
-        return;
-      }
+    // Explicitly prevent self-review
+    if (output.createdBy.toString() === req.user?._id?.toString()) {
+      res.status(403).json({ message: 'Cannot review your own output' });
+      return;
+    }
+
+    if (output.status !== 'PENDING_REVIEW') {
+      res.status(400).json({ message: 'Only PENDING_REVIEW outputs can be approved/rejected' });
+      return;
     }
 
     if (!req.user?._id) {

@@ -14,16 +14,18 @@ interface ReviewPanelProps {
   outputId: string;
   status: string;
   comments: Comment[];
+  outputCreatorId?: string;
   onReviewAction: () => void;
 }
 
-export const ReviewPanel = ({ outputId, status, comments, onReviewAction }: ReviewPanelProps) => {
+export const ReviewPanel = ({ outputId, status, comments, outputCreatorId, onReviewAction }: ReviewPanelProps) => {
   const [note, setNote] = useState('');
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   
-  const canReview = role === 'Reviewer' || role === 'Administrator';
+  const isCreator = user?._id === outputCreatorId;
+  const canReview = (role === 'Reviewer' || role === 'Administrator') && !isCreator;
 
   const handleReview = async (action: 'approve' | 'reject') => {
     if (!canReview) return;

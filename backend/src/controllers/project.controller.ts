@@ -12,7 +12,16 @@ const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].inclu
 
 export const getProjects = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter = isReviewerOrAdmin(req.user?.role) ? {} : { ownerId: req.user?._id };
+    let filter = {};
+    if (req.user?.role === 'Administrator') {
+      filter = {};
+    } else if (req.user?.role === 'Reviewer') {
+      filter = { assignedReviewers: req.user._id };
+    } else if (req.user?.role === 'Viewer') {
+      filter = { assignedViewers: req.user._id };
+    } else {
+      filter = { ownerId: req.user?._id };
+    }
     const projects = await Project.find(filter).sort({ updatedAt: -1 });
     res.status(200).json(projects);
   } catch (error) {
@@ -50,8 +59,18 @@ export const getProjectDetails = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Reviewers and administrators can access project details for review workflows.
-    const canAccess = project.ownerId.toString() === req.user?._id.toString() || isReviewerOrAdmin(req.user?.role);
+    // Reviewers and Viewers can access project details if they are explicitly assigned, Admins have global access.
+    let canAccess = false;
+    if (req.user?.role === 'Administrator') {
+      canAccess = true;
+    } else if (req.user?.role === 'Reviewer') {
+      canAccess = project.assignedReviewers?.some(id => id.toString() === req.user?._id?.toString());
+    } else if (req.user?.role === 'Viewer') {
+      canAccess = project.assignedViewers?.some(id => id.toString() === req.user?._id?.toString());
+    } else {
+      canAccess = project.ownerId.toString() === req.user?._id?.toString();
+    }
+    
     if (!canAccess) {
       res.status(403).json({ message: 'Not authorized to access this project' });
       return;
@@ -220,5 +239,53 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
   } catch (error) {
     console.error('Generation Error:', error);
     res.status(502).json({ message: 'AI service is unavailable' });
+  }
+};
+
+export const assignProjectAccess = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { assignedReviewers, assignedViewers } = req.body;
+    
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(400).json({ message: 'Invalid project ID' });
+      return;
+    }
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    // Only Admins can assign users. Operators CANNOT.
+    if (req.user?.role !== 'Administrator') {
+      res.status(403).json({ message: 'Only Administrators can assign access' });
+      return;
+    }
+
+    if (Array.isArray(assignedReviewers)) {
+      project.assignedReviewers = assignedReviewers as mongoose.Types.ObjectId[];
+    }
+    if (Array.isArray(assignedViewers)) {
+      project.assignedViewers = assignedViewers as mongoose.Types.ObjectId[];
+    }
+
+    await project.save();
+
+    await AuditLog.create({
+      entityType: 'Project',
+      entityId: project._id,
+      action: 'PROJECT_ACCESS_UPDATED',
+      performedBy: req.user?._id,
+      metadata: {
+        reviewersAssigned: project.assignedReviewers.length,
+        viewersAssigned: project.assignedViewers.length
+      }
+    });
+
+    res.status(200).json(project);
+  } catch (error) {
+    console.error('Assign Project Access Error:', error);
+    res.status(500).json({ message: 'Error assigning project access' });
   }
 };

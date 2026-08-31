@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProjects, createProject, getProjectDetails, generateProjectContent, deleteProject } from '../controllers/project.controller';
+import { getProjects, createProject, getProjectDetails, generateProjectContent, deleteProject, assignProjectAccess } from '../controllers/project.controller';
 import { protect } from '../middlewares/auth.middleware';
 
 const router = Router();
@@ -15,5 +15,6 @@ router.route('/:id')
   .delete(deleteProject);
 
 router.post('/:id/generate', generateProjectContent);
+router.post('/:id/assign', assignProjectAccess);
 
 export default router;

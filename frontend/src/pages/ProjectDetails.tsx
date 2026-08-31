@@ -9,6 +9,7 @@ import { AdvisoryView } from '../components/AdvisoryView';
 import { GenerationConfigModal, type GenerationConfig } from '../components/GenerationConfigModal';
 import { OutputList } from '../components/OutputList';
 import { SourceEvidencePanel } from '../components/SourceEvidencePanel';
+import { outputsApi } from '../api/outputs';
 
 interface Source {
   _id: string;
@@ -287,8 +288,16 @@ export const ProjectDetails = () => {
                 <SourceEvidencePanel
                   audit={result.audit}
                   format={format}
-                  onApprove={(fmt, note) => console.log(`Approved ${fmt}: ${note}`)}
-                  onReject={(fmt, note) => console.log(`Rejected ${fmt}: ${note}`)}
+                  outputStatus="DRAFT"
+                  onSubmitForReview={async () => {
+                    if (result._id) await outputsApi.submitForReview(result._id);
+                  }}
+                  onApprove={async (_, note) => {
+                    if (result._id) await outputsApi.reviewOutput(result._id, 'approve', note);
+                  }}
+                  onReject={async (_, note) => {
+                    if (result._id) await outputsApi.reviewOutput(result._id, 'reject', note);
+                  }}
                 />
               </article>
             ))}

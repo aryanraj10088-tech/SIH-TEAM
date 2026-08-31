@@ -1,27 +1,44 @@
 // src/components/SourceEvidencePanel.tsx
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, XCircle, MessageSquare } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, MessageSquare, Send } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   audit: { status: string; groundedness_score?: number; chunks_used?: string[] };
   format: string;
-  onApprove: (format: string, comment: string) => void;
-  onReject: (format: string, comment: string) => void;
+  outputStatus?: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  onSubmitForReview?: (format: string) => void;
+  onApprove?: (format: string, comment: string) => void;
+  onReject?: (format: string, comment: string) => void;
 }
 
-export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove, onReject }) => {
+export const SourceEvidencePanel: React.FC<Props> = ({ 
+  audit, 
+  format, 
+  outputStatus = 'DRAFT', 
+  onSubmitForReview,
+  onApprove, 
+  onReject 
+}) => {
   const [comment, setComment] = useState('');
-  const [status, setStatus] = useState<'DRAFT' | 'APPROVED' | 'REJECTED'>('DRAFT');
+  const [localStatus, setLocalStatus] = useState(outputStatus);
+  const { role } = useAuth();
 
-  const handleAction = (type: 'APPROVE' | 'REJECT') => {
+  const handleAction = (type: 'APPROVE' | 'REJECT' | 'SUBMIT') => {
     if (type === 'APPROVE') {
-      setStatus('APPROVED');
-      onApprove(format, comment);
-    } else {
-      setStatus('REJECTED');
-      onReject(format, comment);
+      setLocalStatus('APPROVED');
+      onApprove && onApprove(format, comment);
+    } else if (type === 'REJECT') {
+      setLocalStatus('REJECTED');
+      onReject && onReject(format, comment);
+    } else if (type === 'SUBMIT') {
+      setLocalStatus('PENDING_REVIEW');
+      onSubmitForReview && onSubmitForReview(format);
     }
   };
+
+  const isReviewer = role === 'Reviewer' || role === 'Administrator';
+  const isOperator = role === 'Operator' || role === 'Administrator';
 
   return (
     <div className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-200 dark:border-gray-700 p-4 rounded-b-xl flex flex-col md:flex-row items-center justify-between gap-4">
@@ -29,7 +46,17 @@ export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove,
       <div className="flex items-center gap-3">
         <ShieldCheck className={`w-5 h-5 ${audit.groundedness_score && audit.groundedness_score >= 0.8 ? 'text-green-500' : 'text-amber-500'}`} />
         <div>
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Audit Verification</p>
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+            Audit Verification &nbsp;
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+              localStatus === 'APPROVED' ? 'bg-green-100 text-green-800' :
+              localStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
+              localStatus === 'PENDING_REVIEW' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-gray-200 text-gray-800'
+            }`}>
+              {localStatus.replace('_', ' ')}
+            </span>
+          </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Groundedness: <span className="font-bold text-gray-800 dark:text-gray-200">{Math.round((audit.groundedness_score || 0) * 100)}%</span>
           </p>
@@ -38,34 +65,45 @@ export const SourceEvidencePanel: React.FC<Props> = ({ audit, format, onApprove,
 
       {/* Reviewer Comment & Approval Actions */}
       <div className="flex items-center gap-2 w-full md:w-auto">
-        <div className="relative flex-1 md:w-64">
-          <input
-            type="text"
-            placeholder="Add reviewer notes..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
-          />
-          <MessageSquare className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
-        </div>
+        {(isReviewer || isOperator) && (
+          <div className="relative flex-1 md:w-64">
+            <input
+              type="text"
+              placeholder="Add notes or feedback..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+            />
+            <MessageSquare className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
+          </div>
+        )}
 
-        <button
-          onClick={() => handleAction('APPROVE')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
-            status === 'APPROVED' ? 'bg-green-700 text-white' : 'bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          <CheckCircle2 size={14} /> {status === 'APPROVED' ? 'Approved' : 'Approve'}
-        </button>
+        {isOperator && (localStatus === 'DRAFT' || localStatus === 'REJECTED') && (
+          <button
+            onClick={() => handleAction('SUBMIT')}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Send size={14} /> Submit
+          </button>
+        )}
 
-        <button
-          onClick={() => handleAction('REJECT')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
-            status === 'REJECTED' ? 'bg-red-700 text-white' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40'
-          }`}
-        >
-          <XCircle size={14} /> Reject
-        </button>
+        {isReviewer && localStatus === 'PENDING_REVIEW' && (
+          <>
+            <button
+              onClick={() => handleAction('APPROVE')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors bg-green-600 text-white hover:bg-green-700"
+            >
+              <CheckCircle2 size={14} /> Approve
+            </button>
+
+            <button
+              onClick={() => handleAction('REJECT')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
+            >
+              <XCircle size={14} /> Reject
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

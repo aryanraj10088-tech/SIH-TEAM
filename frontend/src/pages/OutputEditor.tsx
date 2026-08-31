@@ -201,6 +201,7 @@ export const OutputEditor = () => {
             outputId={output._id} 
             status={output.status} 
             comments={output.reviewerComments} 
+            outputCreatorId={output.createdBy?._id}
             onReviewAction={fetchOutput} 
           />
           <EvidencePanel 
