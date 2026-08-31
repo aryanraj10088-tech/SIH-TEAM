@@ -4,7 +4,9 @@ import Project from '../models/Project';
 import Source from '../models/Source';
 import GeneratedOutput from '../models/GeneratedOutput';
 import AuditLog from '../models/AuditLog';
+import Notification from '../models/Notification';
 import { storageService } from '../services/storage/s3.storage';
+import User from '../models/User';
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
@@ -12,16 +14,7 @@ const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].inclu
 
 export const getProjects = async (req: Request, res: Response): Promise<void> => {
   try {
-    let filter = {};
-    if (req.user?.role === 'Administrator') {
-      filter = {};
-    } else if (req.user?.role === 'Reviewer') {
-      filter = { assignedReviewers: req.user._id };
-    } else if (req.user?.role === 'Viewer') {
-      filter = { assignedViewers: req.user._id };
-    } else {
-      filter = { ownerId: req.user?._id };
-    }
+    const filter = { ownerId: req.user?._id };
     const projects = await Project.find(filter).sort({ updatedAt: -1 });
     res.status(200).json(projects);
   } catch (error) {
@@ -46,6 +39,7 @@ export const createProject = async (req: Request, res: Response): Promise<void> 
 
     res.status(201).json(project);
   } catch (error) {
+    console.error('Error creating project:', error);
     res.status(500).json({ message: 'Error creating project' });
   }
 };
@@ -59,17 +53,8 @@ export const getProjectDetails = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Reviewers and Viewers can access project details if they are explicitly assigned, Admins have global access.
-    let canAccess = false;
-    if (req.user?.role === 'Administrator') {
-      canAccess = true;
-    } else if (req.user?.role === 'Reviewer') {
-      canAccess = project.assignedReviewers?.some(id => id.toString() === req.user?._id?.toString());
-    } else if (req.user?.role === 'Viewer') {
-      canAccess = project.assignedViewers?.some(id => id.toString() === req.user?._id?.toString());
-    } else {
-      canAccess = project.ownerId.toString() === req.user?._id?.toString();
-    }
+    // Only the owner of the project can access its details
+    const canAccess = project.ownerId.toString() === req.user?._id?.toString();
     
     if (!canAccess) {
       res.status(403).json({ message: 'Not authorized to access this project' });
@@ -95,9 +80,8 @@ export const deleteProject = async (req: Request, res: Response): Promise<void> 
     }
 
     const isOwner = project.ownerId.toString() === req.user?._id.toString();
-    const isAdmin = req.user?.role === 'Administrator';
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       res.status(403).json({ message: 'Not authorized to delete this project' });
       return;
     }
@@ -193,8 +177,7 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
       res.status(404).json({ message: 'Project not found' });
       return;
     }
-    const isAdmin = req.user?.role === 'Administrator';
-    const canGenerate = project.ownerId.toString() === req.user?._id.toString() || isAdmin;
+    const canGenerate = project.ownerId.toString() === req.user?._id.toString();
     if (!canGenerate) {
       res.status(403).json({ message: 'Not authorized to generate content for this project' });
       return;
@@ -235,6 +218,32 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
       return;
     }
 
+    // Persist to MongoDB
+    if (payload.results) {
+      for (const [format, data] of Object.entries(payload.results as Record<string, any>)) {
+        const output = await GeneratedOutput.create({
+          projectId: project._id,
+          sourceId: source._id,
+          createdBy: req.user?._id,
+          format,
+          content: data.content,
+          status: 'DRAFT',
+          versions: []
+        });
+
+        await AuditLog.create({
+          entityType: 'GeneratedOutput',
+          entityId: output._id,
+          action: 'CREATED_VIA_GENERATION',
+          performedBy: req.user?._id,
+          metadata: { format, groundedness: data.audit?.groundedness_score }
+        });
+
+        // Attach DB ID back to the payload so frontend can route to it
+        data._id = output._id;
+      }
+    }
+
     res.status(200).json(payload);
   } catch (error) {
     console.error('Generation Error:', error);
@@ -242,12 +251,37 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
   }
 };
 
-export const assignProjectAccess = async (req: Request, res: Response): Promise<void> => {
+export const getAssignableProjects = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { assignedReviewers, assignedViewers } = req.body;
+    if (req.user?.role !== 'Administrator') {
+      res.status(403).json({ message: 'Only Administrators can view assignable projects' });
+      return;
+    }
     
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      res.status(400).json({ message: 'Invalid project ID' });
+    // Return only metadata. No documents, no full outputs.
+    const projects = await Project.find()
+      .populate('ownerId', 'name email')
+      .populate('assignedReviewers', 'name email')
+      .select('_id title ownerId assignedReviewers createdAt updatedAt')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(projects);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching assignable projects' });
+  }
+};
+
+export const addReviewer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { reviewerId } = req.body;
+    
+    if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(reviewerId)) {
+      res.status(400).json({ message: 'Invalid ID format' });
+      return;
+    }
+
+    if (req.user?.role !== 'Administrator') {
+      res.status(403).json({ message: 'Only Administrators can assign access' });
       return;
     }
 
@@ -257,35 +291,78 @@ export const assignProjectAccess = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Only Admins can assign users. Operators CANNOT.
+    const reviewer = await User.findById(reviewerId);
+    if (!reviewer || reviewer.role !== 'Reviewer') {
+      res.status(400).json({ message: 'User is not a Reviewer' });
+      return;
+    }
+
+    if (project.ownerId.toString() === reviewerId) {
+      res.status(400).json({ message: 'Cannot assign the project owner as a reviewer' });
+      return;
+    }
+
+    if (!project.assignedReviewers.includes(reviewer._id as any)) {
+      project.assignedReviewers.push(reviewer._id as any);
+      await project.save();
+
+      await AuditLog.create({
+        entityType: 'Project',
+        entityId: project._id,
+        action: 'REVIEWER_ASSIGNED',
+        performedBy: req.user?._id,
+        metadata: { reviewerId }
+      });
+
+      await Notification.create({
+        userId: reviewer._id,
+        type: 'REVIEW_ASSIGNED',
+        message: `You have been assigned a review for project: ${project.title}`,
+        link: '/pending-reviews'
+      });
+    }
+
+    res.status(200).json({ message: 'Reviewer assigned successfully', project });
+  } catch (error) {
+    res.status(500).json({ message: 'Error assigning reviewer' });
+  }
+};
+
+export const removeReviewer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { reviewerId } = req.params;
+    
+    if (!mongoose.isValidObjectId(req.params.id) || !mongoose.isValidObjectId(reviewerId)) {
+      res.status(400).json({ message: 'Invalid ID format' });
+      return;
+    }
+
     if (req.user?.role !== 'Administrator') {
       res.status(403).json({ message: 'Only Administrators can assign access' });
       return;
     }
 
-    if (Array.isArray(assignedReviewers)) {
-      project.assignedReviewers = assignedReviewers as mongoose.Types.ObjectId[];
-    }
-    if (Array.isArray(assignedViewers)) {
-      project.assignedViewers = assignedViewers as mongoose.Types.ObjectId[];
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
     }
 
+    project.assignedReviewers = project.assignedReviewers.filter(
+      (id) => id.toString() !== reviewerId
+    );
     await project.save();
 
     await AuditLog.create({
       entityType: 'Project',
       entityId: project._id,
-      action: 'PROJECT_ACCESS_UPDATED',
+      action: 'REVIEWER_REMOVED',
       performedBy: req.user?._id,
-      metadata: {
-        reviewersAssigned: project.assignedReviewers.length,
-        viewersAssigned: project.assignedViewers.length
-      }
+      metadata: { reviewerId }
     });
 
-    res.status(200).json(project);
+    res.status(200).json({ message: 'Reviewer removed successfully', project });
   } catch (error) {
-    console.error('Assign Project Access Error:', error);
-    res.status(500).json({ message: 'Error assigning project access' });
+    res.status(500).json({ message: 'Error removing reviewer' });
   }
 };

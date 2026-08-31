@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { outputsApi } from '../api/outputs';
 import { useAuth } from '../context/AuthContext';
 import { EvidencePanel } from '../components/EvidencePanel';
 import { VersionHistory } from '../components/VersionHistory';
 import { ReviewPanel } from '../components/ReviewPanel';
+import { useNotifications } from '../context/NotificationContext';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 
 export const OutputEditor = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [output, setOutput] = useState<any>(null);
   const [editedContent, setEditedContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editNote, setEditNote] = useState('');
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const { lastUpdateTimestamp } = useNotifications();
   
   const fetchOutput = async () => {
     try {
@@ -32,7 +35,7 @@ export const OutputEditor = () => {
 
   useEffect(() => {
     fetchOutput();
-  }, [id]);
+  }, [id, lastUpdateTimestamp]);
 
   const handleFieldChange = (key: string, value: any) => {
     setEditedContent((prev: any) => ({
@@ -74,11 +77,20 @@ export const OutputEditor = () => {
     }
   };
 
+  const handleReviewAction = async () => {
+    await fetchOutput();
+    if (role === 'Reviewer') {
+      navigate('/pending-reviews');
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading output...</div>;
   if (!output) return <div className="p-8 text-center text-red-500">Output not found</div>;
 
-  const isOperator = role === 'Operator' || role === 'Administrator';
-  const canEdit = isOperator && output.status !== 'APPROVED';
+  const isCreator = output.createdBy?._id === user?._id;
+  const isOperator = role === 'Operator' && isCreator;
+  const isAdmin = role === 'Administrator';
+  const canEdit = (isOperator || isAdmin) && output.status !== 'APPROVED';
   
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
@@ -202,7 +214,7 @@ export const OutputEditor = () => {
             status={output.status} 
             comments={output.reviewerComments} 
             outputCreatorId={output.createdBy?._id}
-            onReviewAction={fetchOutput} 
+            onReviewAction={handleReviewAction} 
           />
           <EvidencePanel 
             citations={output.content.citations || []} 

@@ -10,6 +10,8 @@ import { GenerationConfigModal, type GenerationConfig } from '../components/Gene
 import { OutputList } from '../components/OutputList';
 import { SourceEvidencePanel } from '../components/SourceEvidencePanel';
 import { outputsApi } from '../api/outputs';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 interface Source {
   _id: string;
@@ -28,6 +30,7 @@ interface Project {
 }
 
 interface GeneratedResult {
+  _id?: string;
   content: Record<string, unknown>;
   audit: { status: string; groundedness_score?: number; chunks_used?: string[] };
 }
@@ -45,6 +48,9 @@ export const ProjectDetails = () => {
   const [activeTab, setActiveTab] = useState<'sources' | 'outputs'>('sources');
   const [selectedSourceForGeneration, setSelectedSourceForGeneration] = useState<Source | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const { role, user } = useAuth();
+  const { lastUpdateTimestamp } = useNotifications();
+  const canMutate = role === 'Operator' || role === 'Administrator';
 
   const fetchProjectDetails = async () => {
     try {
@@ -62,7 +68,7 @@ export const ProjectDetails = () => {
 
   useEffect(() => {
     fetchProjectDetails();
-  }, [id]);
+  }, [id, lastUpdateTimestamp]);
 
   const executeGeneration = async (configFromModal: GenerationConfig) => {
     if (!selectedSourceForGeneration) return;
@@ -210,7 +216,7 @@ export const ProjectDetails = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {source.mimeType === 'application/pdf' && (
+                          {source.mimeType === 'application/pdf' && canMutate && (
                             <button
                               type="button"
                               onClick={() => {
@@ -228,13 +234,15 @@ export const ProjectDetails = () => {
                             {getStatusIcon(source.status)}
                             <span className="ml-1">{source.status}</span>
                           </span>
-                          <button
-                            onClick={() => deleteSource(source._id)}
-                            className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
-                            title="Delete file"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canMutate && (
+                            <button
+                              onClick={() => deleteSource(source._id)}
+                              className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-colors"
+                              title="Delete file"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -250,12 +258,14 @@ export const ProjectDetails = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Upload Source</h2>
-            <UploadComponent projectId={project._id} onUploadSuccess={fetchProjectDetails} />
+        {canMutate && (
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Upload Source</h2>
+              <UploadComponent projectId={project._id} onUploadSuccess={fetchProjectDetails} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {generatedResults && (
@@ -289,6 +299,7 @@ export const ProjectDetails = () => {
                   audit={result.audit}
                   format={format}
                   outputStatus="DRAFT"
+                  outputCreatorId={user?._id}
                   onSubmitForReview={async () => {
                     if (result._id) await outputsApi.submitForReview(result._id);
                   }}

@@ -7,6 +7,7 @@ interface Props {
   audit: { status: string; groundedness_score?: number; chunks_used?: string[] };
   format: string;
   outputStatus?: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  outputCreatorId?: string;
   onSubmitForReview?: (format: string) => void;
   onApprove?: (format: string, comment: string) => void;
   onReject?: (format: string, comment: string) => void;
@@ -16,13 +17,14 @@ export const SourceEvidencePanel: React.FC<Props> = ({
   audit, 
   format, 
   outputStatus = 'DRAFT', 
+  outputCreatorId,
   onSubmitForReview,
   onApprove, 
   onReject 
 }) => {
   const [comment, setComment] = useState('');
   const [localStatus, setLocalStatus] = useState(outputStatus);
-  const { role } = useAuth();
+  const { role, user } = useAuth();
 
   const handleAction = (type: 'APPROVE' | 'REJECT' | 'SUBMIT') => {
     if (type === 'APPROVE') {
@@ -37,7 +39,8 @@ export const SourceEvidencePanel: React.FC<Props> = ({
     }
   };
 
-  const isReviewer = role === 'Reviewer' || role === 'Administrator';
+  const isCreator = outputCreatorId ? user?._id === outputCreatorId : false;
+  const isReviewer = (role === 'Reviewer' || role === 'Administrator') && !isCreator;
   const isOperator = role === 'Operator' || role === 'Administrator';
 
   return (

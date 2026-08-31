@@ -3,35 +3,16 @@ import mongoose from 'mongoose';
 import GeneratedOutput from '../models/GeneratedOutput';
 import AuditLog from '../models/AuditLog';
 import Project from '../models/Project';
-import User from '../models/User';
+import Notification from '../models/Notification';
 
-const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].includes(role || '');
-
-// Helper to check project ownership for mutations like create/edit/delete
+// Helper to check project ownership
 const checkProjectOwnership = async (projectId: string, userId: string | undefined) => {
   if (!userId) return { error: 'Not authenticated', status: 401 };
   const project = await Project.findById(projectId);
   if (!project) return { error: 'Project not found', status: 404 };
+  
   if (project.ownerId.toString() !== userId) return { error: 'Not authorized for this project', status: 403 };
   return { project, error: null };
-};
-
-// Helper for read access: reviewers/admins can view pending review tasks if assigned to project.
-const checkProjectReadAccess = async (projectId: string, userId: string | undefined, userRole?: string) => {
-  if (!userId) return { error: 'Not authenticated', status: 401 };
-  const project = await Project.findById(projectId);
-  if (!project) return { error: 'Project not found', status: 404 };
-
-  if (userRole === 'Administrator') return { project, error: null };
-  if (userRole === 'Reviewer') {
-    if (project.assignedReviewers?.some(id => id.toString() === userId)) return { project, error: null };
-  }
-  if (userRole === 'Viewer') {
-    if (project.assignedViewers?.some(id => id.toString() === userId)) return { project, error: null };
-  }
-  if (project.ownerId.toString() === userId) return { project, error: null };
-
-  return { error: 'Not authorized for this project', status: 403 };
 };
 
 export const createOutput = async (req: Request, res: Response): Promise<void> => {
@@ -75,7 +56,7 @@ export const getOutputs = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const { error, status } = await checkProjectReadAccess(projectId as string, req.user?._id?.toString(), req.user?.role);
+    const { error, status } = await checkProjectOwnership(projectId as string, req.user?._id?.toString());
     if (error) {
       res.status(status as number).json({ message: error });
       return;
@@ -100,10 +81,31 @@ export const getOutputById = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const { error, status } = await checkProjectReadAccess(output.projectId.toString(), req.user?._id?.toString(), req.user?.role);
-    if (error) {
-      res.status(status as number).json({ message: error });
+    const userId = req.user?._id?.toString();
+    if (!userId) {
+      res.status(401).json({ message: 'Not authenticated' });
       return;
+    }
+
+    const project = await Project.findById(output.projectId);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    const isOwner = project.ownerId.toString() === userId;
+    const isAssignedReviewer = project.assignedReviewers?.some(id => id.toString() === userId);
+    const isPendingReview = output.status === 'PENDING_REVIEW';
+    const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
+
+    // The core privacy logic
+    if (isOwner) {
+       // Owner can always see their own output
+    } else if (canReview && isAssignedReviewer && isPendingReview) {
+       // Assigned reviewer/admin can only see it if it's explicitly submitted for review
+    } else {
+       res.status(403).json({ message: 'Not authorized to access this output' });
+       return;
     }
 
     res.status(200).json(output);
@@ -133,12 +135,16 @@ export const editContent = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (output.createdBy.toString() !== req.user?._id?.toString()) {
+      res.status(403).json({ message: 'Cannot edit an output you did not create' });
+      return;
+    }
+
     if (!req.user?._id) {
        res.status(401).json({ message: 'Not authenticated' });
        return;
     }
 
-    // Save previous state to versions
     output.versions.push({
       content: output.content,
       editedBy: req.user._id,
@@ -147,7 +153,6 @@ export const editContent = async (req: Request, res: Response): Promise<void> =>
     });
 
     output.content = content;
-    // Keep it in DRAFT or revert to DRAFT if it was rejected/pending
     if (output.status !== 'DRAFT') {
       output.status = 'DRAFT';
     }
@@ -176,7 +181,7 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const { error, status } = await checkProjectOwnership(output.projectId.toString(), req.user?._id?.toString());
+    const { project, error, status } = await checkProjectOwnership(output.projectId.toString(), req.user?._id?.toString());
     if (error) {
       res.status(status as number).json({ message: error });
       return;
@@ -197,6 +202,16 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
       performedBy: req.user?._id
     });
 
+    if (project && project.assignedReviewers && project.assignedReviewers.length > 0) {
+      const notifications = project.assignedReviewers.map(reviewerId => ({
+        userId: reviewerId,
+        type: 'OUTPUT_SUBMITTED',
+        message: `An output in project "${project.title}" has been submitted for review.`,
+        link: '/pending-reviews'
+      }));
+      await Notification.insertMany(notifications);
+    }
+
     res.status(200).json(output);
   } catch (err: any) {
     res.status(500).json({ message: 'Error submitting for review' });
@@ -213,20 +228,34 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Reviewers/Admins with read access can add comments. Owners can add comments too.
-    const { error, status } = await checkProjectReadAccess(output.projectId.toString(), req.user?._id?.toString(), req.user?.role);
-    if (error) {
-      res.status(status as number).json({ message: error });
-      return;
-    }
-
-    if (!req.user?._id) {
+    const userId = req.user?._id?.toString();
+    if (!userId) {
        res.status(401).json({ message: 'Not authenticated' });
        return;
     }
 
+    const project = await Project.findById(output.projectId);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+
+    const isOwner = project.ownerId.toString() === userId;
+    const isAssignedReviewer = project.assignedReviewers?.some(id => id.toString() === userId);
+    const isPendingReview = output.status === 'PENDING_REVIEW';
+    const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
+
+    if (isOwner) {
+       // Owner can comment
+    } else if (canReview && isAssignedReviewer && isPendingReview) {
+       // Reviewer can comment
+    } else {
+       res.status(403).json({ message: 'Not authorized to comment on this output' });
+       return;
+    }
+
     output.reviewerComments.push({
-      userId: req.user._id,
+      userId: req.user!._id,
       text,
       createdAt: new Date()
     });
@@ -237,7 +266,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       entityType: 'GeneratedOutput',
       entityId: output._id,
       action: 'COMMENT_ADDED',
-      performedBy: req.user._id
+      performedBy: req.user?._id
     });
 
     res.status(200).json(output);
@@ -248,7 +277,7 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
 
 export const reviewOutput = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { action, note } = req.body; // action: 'approve' | 'reject'
+    const { action, note } = req.body; 
     
     if (!['approve', 'reject'].includes(action)) {
       res.status(400).json({ message: 'Invalid action' });
@@ -261,15 +290,27 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Ensure Reviewer/Admin has read access to the project
-    const { error: readError, status: readStatus } = await checkProjectReadAccess(output.projectId.toString(), req.user?._id?.toString(), req.user?.role);
-    if (readError) {
-      res.status(readStatus as number).json({ message: readError });
+    const userId = req.user?._id?.toString();
+    if (!userId) {
+       res.status(401).json({ message: 'Not authenticated' });
+       return;
+    }
+
+    const project = await Project.findById(output.projectId);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
       return;
     }
 
-    // Explicitly prevent self-review
-    if (output.createdBy.toString() === req.user?._id?.toString()) {
+    const isAssignedReviewer = project.assignedReviewers?.some(id => id.toString() === userId);
+    const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
+    
+    if (!canReview || !isAssignedReviewer) {
+      res.status(403).json({ message: 'You are not assigned as a Reviewer for this project' });
+      return;
+    }
+
+    if (output.createdBy.toString() === userId) {
       res.status(403).json({ message: 'Cannot review your own output' });
       return;
     }
@@ -279,13 +320,8 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    if (!req.user?._id) {
-       res.status(401).json({ message: 'Not authenticated' });
-       return;
-    }
-
     output.status = action === 'approve' ? 'APPROVED' : 'REJECTED';
-    output.reviewedBy = req.user._id;
+    output.reviewedBy = req.user?._id;
     output.reviewedAt = new Date();
     output.approvalNote = note;
 
@@ -295,12 +331,54 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
       entityType: 'GeneratedOutput',
       entityId: output._id,
       action: action === 'approve' ? 'APPROVED' : 'REJECTED',
-      performedBy: req.user._id,
+      performedBy: req.user?._id,
       metadata: { note }
+    });
+
+    await Notification.create({
+      userId: output.createdBy,
+      type: action === 'approve' ? 'OUTPUT_APPROVED' : 'OUTPUT_REJECTED',
+      message: `Your output in project "${project.title}" was ${action === 'approve' ? 'approved' : 'rejected'}.`,
+      link: `/outputs/${output._id}`
     });
 
     res.status(200).json(output);
   } catch (err: any) {
     res.status(500).json({ message: 'Error reviewing output' });
+  }
+};
+
+export const getPendingReviews = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+
+    if (!userId) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    // Admins and Reviewers both must be EXPLICITLY ASSIGNED to see pending reviews
+    if (!['Administrator', 'Reviewer'].includes(role || '')) {
+      res.status(403).json({ message: 'Not authorized to view pending reviews' });
+      return;
+    }
+
+    const projectFilter = { assignedReviewers: userId };
+
+    const projects = await Project.find(projectFilter).select('_id');
+    const projectIds = projects.map(p => p._id);
+
+    const pendingOutputs = await GeneratedOutput.find({
+      projectId: { $in: projectIds },
+      status: 'PENDING_REVIEW'
+    })
+      .sort({ updatedAt: -1 })
+      .populate('projectId', 'title')
+      .populate('createdBy', 'name email');
+
+    res.status(200).json(pendingOutputs);
+  } catch (err: any) {
+    res.status(500).json({ message: 'Error fetching pending reviews' });
   }
 };

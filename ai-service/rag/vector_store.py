@@ -12,11 +12,11 @@ class LocalRAGStore:
         self.is_lightweight = LIGHTWEIGHT_MODE
 
         if self.is_lightweight:
-            print("🧠 Initializing Lightweight Document Store (Optimized for 512MB RAM)...")
+            print("Initializing Lightweight Document Store (Optimized for 512MB RAM)...")
             self.encoder = None
             self.index = None
         else:
-            print("🧠 Loading PyTorch & FAISS Embedding Model (this takes a sec on first run)...")
+            print("Loading PyTorch & FAISS Embedding Model (this takes a sec on first run)...")
             # We import these ONLY if not in lightweight mode to save 300MB+ RAM
             import faiss
             from sentence_transformers import SentenceTransformer

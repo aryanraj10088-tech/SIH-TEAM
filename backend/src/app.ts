@@ -48,13 +48,19 @@ if (process.env.NODE_ENV === 'development') {
 import projectRoutes from './routes/project.routes';
 import sourceRoutes from './routes/source.routes';
 import outputRoutes from './routes/output.routes';
+import userRoutes from './routes/user.routes';
+import notificationRoutes from './routes/notification.routes';
+import adminRoutes from './routes/admin.routes';
 
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projects/:id/sources', sourceRoutes);
 app.use('/api/outputs', outputRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error Handling
 app.use(notFound);

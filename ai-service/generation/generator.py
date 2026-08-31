@@ -115,15 +115,17 @@ async def generate_all_formats(
     )
     preferences = "\n".join(
         value for value in [
-            f"Audience: {audience}" if audience else "",
+            f"Target Audience: {audience}" if audience else "",
             f"Tone: {tone}" if tone else "",
             f"Detail level: {detail_level}" if detail_level else "",
             f"Objective: {objective}" if objective else "",
-            f"Language: {language}" if language else "",
+            f"Language: {language} (CRITICAL: You MUST write all generated textual content in {language}. Keep JSON keys in English, but the content values MUST be in {language}.)" if language else "",
         ] if value
     )
     instructions = f"\nGeneration preferences:\n{preferences}\n" if preferences else ""
     config_str = instructions
+
+    language_reminder = f"\n\nCRITICAL DIRECTIVE: The user explicitly requested the language to be {language}. You MUST translate and write ALL generated textual content in {language}. Keep the JSON keys in English, but the actual content MUST be in {language}. Do not use English for the content." if language else ""
 
     tasks = {}
 
@@ -131,6 +133,7 @@ async def generate_all_formats(
         prompt = (
             f"Create an Executive Summary based ONLY on these chunks:\n\n{formatted_context}{config_str}\n\n"
             f"Return ONLY this exact JSON structure (no extra fields):\n{_get_schema_instruction('ExecutiveSummaryOutput')}"
+            f"{language_reminder}"
         )
         tasks["summary"] = generate_single_format(prompt, ExecutiveSummaryOutput)
 
@@ -138,6 +141,7 @@ async def generate_all_formats(
         prompt = (
             f"Create an engaging LinkedIn Post based ONLY on these chunks:\n\n{formatted_context}{config_str}\n\n"
             f"Return ONLY this exact JSON structure (no extra fields):\n{_get_schema_instruction('LinkedInPostOutput')}"
+            f"{language_reminder}"
         )
         tasks["linkedin"] = generate_single_format(prompt, LinkedInPostOutput)
 
@@ -145,6 +149,7 @@ async def generate_all_formats(
         prompt = (
             f"Create a structured Advisory Document based ONLY on these chunks:\n\n{formatted_context}{config_str}\n\n"
             f"Return ONLY this exact JSON structure (no extra fields):\n{_get_schema_instruction('AdvisoryOutput')}"
+            f"{language_reminder}"
         )
         tasks["advisory"] = generate_single_format(prompt, AdvisoryOutput)
 
@@ -155,6 +160,7 @@ async def generate_all_formats(
             f"for AI avatar generation, and give clear video editing instructions for pacing and transitions.\n\n"
             f"Context:\n{formatted_context}{config_str}\n\n"
             f"Return ONLY this exact JSON structure (no extra fields):\n{_get_schema_instruction('VideoPackageOutput')}"
+            f"{language_reminder}"
         )
         tasks["video"] = generate_single_format(prompt, VideoPackageOutput)
 

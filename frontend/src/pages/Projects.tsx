@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Folder, Plus, Loader2, ArrowRight, Trash2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface Project {
   _id: string;
@@ -11,6 +12,7 @@ interface Project {
 }
 
 export const Projects = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,12 +84,14 @@ export const Projects = () => {
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Projects</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">Manage your content transformation workspaces</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="flex items-center px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:-translate-y-0.5"
-        >
-          <Plus className="w-5 h-5 mr-2" /> New Project
-        </button>
+        {(user?.role === 'Administrator' || user?.role === 'Operator') && (
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:-translate-y-0.5"
+          >
+            <Plus className="w-5 h-5 mr-2" /> New Project
+          </button>
+        )}
       </div>
 
       {error && (
@@ -103,12 +107,14 @@ export const Projects = () => {
           </div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-white">No projects yet</h3>
           <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto">Get started by creating a new project workspace to upload your documents and begin generating content.</p>
-          <button 
-            onClick={() => setShowModal(true)}
-            className="mt-6 px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
-          >
-            Create your first project
-          </button>
+          {(user?.role === 'Administrator' || user?.role === 'Operator') && (
+            <button 
+              onClick={() => setShowModal(true)}
+              className="mt-6 px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+            >
+              Create your first project
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -116,13 +122,15 @@ export const Projects = () => {
             <Link key={project._id} to={`/projects/${project._id}`} className="group block h-full">
               <div className="h-full p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] dark:shadow-none hover:shadow-xl dark:hover:shadow-indigo-900/20 hover:-translate-y-1 hover:border-indigo-100 dark:hover:border-indigo-500/30 transition-all duration-300 flex flex-col relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 flex items-center gap-2">
-                   <button 
-                     onClick={(e) => handleDeleteProject(e, project._id)}
-                     className="p-1.5 bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 hover:text-red-600 rounded-lg transition-colors shadow-sm"
-                     title="Delete Project"
-                   >
-                     <Trash2 className="w-4 h-4" />
-                   </button>
+                   {(user?.role === 'Administrator' || user?.role === 'Operator') && (
+                     <button 
+                       onClick={(e) => handleDeleteProject(e, project._id)}
+                       className="p-1.5 bg-red-50 dark:bg-red-900/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 hover:text-red-600 rounded-lg transition-colors shadow-sm"
+                       title="Delete Project"
+                     >
+                       <Trash2 className="w-4 h-4" />
+                     </button>
+                   )}
                    <ArrowRight className="w-5 h-5 text-indigo-500" />
                 </div>
                 

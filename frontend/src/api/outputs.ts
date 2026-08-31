@@ -11,6 +11,13 @@ export const outputsApi = {
     return data;
   },
 
+  getPendingReviews: async () => {
+    const { data } = await axios.get(`${API_URL}/outputs/pending`, {
+      withCredentials: true
+    });
+    return data;
+  },
+
   getOutputById: async (outputId: string) => {
     const { data } = await axios.get(`${API_URL}/outputs/${outputId}`, {
       withCredentials: true

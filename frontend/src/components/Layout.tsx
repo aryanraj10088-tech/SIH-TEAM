@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sun, Moon, LogOut, LayoutDashboard, FolderOpen, User } from 'lucide-react';
+import { Sun, Moon, LogOut, LayoutDashboard, FolderOpen, User, ClipboardList, ShieldAlert, BarChart3 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { NotificationDropdown } from './NotificationDropdown';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [isDark, setIsDark] = useState(false);
@@ -82,17 +83,48 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 <LayoutDashboard className="w-4 h-4" />
                 Dashboard
               </Link>
-              <Link 
-                to="/projects" 
-                className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname.startsWith('/projects') ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-              >
-                <FolderOpen className="w-4 h-4" />
-                Projects
-              </Link>
+              {user?.role === 'Operator' && (
+                <Link 
+                  to="/projects" 
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname.startsWith('/projects') ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Projects
+                </Link>
+              )}
+              {user?.role === 'Reviewer' && (
+                <Link 
+                  to="/pending-reviews" 
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/pending-reviews' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Reviews
+                </Link>
+              )}
+              {user?.role === 'Administrator' && (
+                <>
+                  <Link 
+                    to="/admin/dashboard" 
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/admin/dashboard' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    System Dashboard
+                  </Link>
+                  <Link 
+                    to="/admin/assignments" 
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/admin/assignments' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    Assignments
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2 sm:gap-3">
+              <NotificationDropdown />
+              
               <Link
                 to="/profile"
                 className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
@@ -137,13 +169,42 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <LayoutDashboard className="w-5 h-5" />
             <span className="text-[10px] font-medium">Dashboard</span>
           </Link>
-          <Link 
-            to="/projects" 
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname.startsWith('/projects') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
-          >
-            <FolderOpen className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Projects</span>
-          </Link>
+          {user?.role === 'Operator' && (
+            <Link 
+              to="/projects" 
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname.startsWith('/projects') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+            >
+              <FolderOpen className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Projects</span>
+            </Link>
+          )}
+          {user?.role === 'Reviewer' && (
+            <Link 
+              to="/pending-reviews" 
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/pending-reviews' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+            >
+              <ClipboardList className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Reviews</span>
+            </Link>
+          )}
+          {user?.role === 'Administrator' && (
+            <>
+              <Link 
+                to="/admin/dashboard" 
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/admin/dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Sys Dash</span>
+              </Link>
+              <Link 
+                to="/admin/assignments" 
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/admin/assignments' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                <ShieldAlert className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Assign</span>
+              </Link>
+            </>
+          )}
           <Link 
             to="/profile" 
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/profile' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}

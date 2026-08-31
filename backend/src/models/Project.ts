@@ -5,7 +5,6 @@ export interface IProject extends Document {
   description: string;
   ownerId: mongoose.Types.ObjectId;
   assignedReviewers: mongoose.Types.ObjectId[];
-  assignedViewers: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,10 +28,6 @@ const projectSchema = new Schema<IProject>(
       index: true,
     },
     assignedReviewers: [{
-      type: Schema.Types.ObjectId,
-      ref: 'User'
-    }],
-    assignedViewers: [{
       type: Schema.Types.ObjectId,
       ref: 'User'
     }]

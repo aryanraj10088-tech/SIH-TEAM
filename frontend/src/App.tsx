@@ -7,7 +7,10 @@ import { ProjectDetails } from './pages/ProjectDetails';
 
 import { Profile } from './pages/Profile';
 import { OutputEditor } from './pages/OutputEditor';
+import { PendingReviews } from './pages/PendingReviews';
 import { Layout } from './components/Layout';
+import { AdminAssignments } from './pages/AdminAssignments';
+import { SystemDashboard } from './pages/SystemDashboard';
 
 function App() {
   return (
@@ -18,6 +21,9 @@ function App() {
         <Route path="/projects" element={<Layout><Projects /></Layout>} />
         <Route path="/projects/:id" element={<Layout><ProjectDetails /></Layout>} />
         <Route path="/outputs/:id" element={<Layout><OutputEditor /></Layout>} />
+        <Route path="/pending-reviews" element={<Layout><PendingReviews /></Layout>} />
+        <Route path="/admin/dashboard" element={<Layout><SystemDashboard /></Layout>} />
+        <Route path="/admin/assignments" element={<Layout><AdminAssignments /></Layout>} />
         <Route path="/profile" element={<Layout><Profile /></Layout>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
