@@ -13,7 +13,7 @@ const getAiServiceUrl = () => {
   if (!url && process.env.NODE_ENV === 'production') {
     throw new Error('AI_SERVICE_URL environment variable is required in production');
   }
-  return url || 'http://localhost:8000';
+  return url ? url.replace(/\/$/, '') : 'http://localhost:8000';
 };
 
 const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].includes(role || '');
@@ -249,9 +249,9 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
     }
 
     res.status(200).json(payload);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Generation Error:', error);
-    res.status(502).json({ message: 'AI service is unavailable' });
+    res.status(502).json({ message: error.message || 'AI service is unavailable' });
   }
 };
 
