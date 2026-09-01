@@ -22,7 +22,7 @@ export const Signup: React.FC = () => {
   const [countdown, setCountdown] = useState(30);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (step === 'otp' && countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => prev - 1);
