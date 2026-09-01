@@ -30,7 +30,13 @@ export const generationService = {
       }),
     });
     
-    const payload = await aiResponse.json() as { detail?: string; results?: unknown; status?: string };
+    const responseText = await aiResponse.text();
+    let payload: any;
+    try {
+      payload = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`AI Service returned an HTML page instead of JSON. You have likely pasted your Frontend or Node Backend URL into the AI_SERVICE_URL environment variable by mistake. It must be the URL of the Python AI Service.`);
+    }
     
     if (!aiResponse.ok) {
       throw new Error(payload.detail || 'AI service failed');
