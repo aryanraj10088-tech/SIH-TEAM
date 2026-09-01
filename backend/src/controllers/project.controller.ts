@@ -8,7 +8,13 @@ import Notification from '../models/Notification';
 import { storageService } from '../services/storage/s3.storage';
 import User from '../models/User';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const getAiServiceUrl = () => {
+  const url = process.env.AI_SERVICE_URL;
+  if (!url && process.env.NODE_ENV === 'production') {
+    throw new Error('AI_SERVICE_URL environment variable is required in production');
+  }
+  return url || 'http://localhost:8000';
+};
 
 const isReviewerOrAdmin = (role?: string) => ['Reviewer', 'Administrator'].includes(role || '');
 
@@ -192,17 +198,15 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
       res.status(404).json({ message: 'Source not found in this project' });
       return;
     }
-    if (source.mimeType !== 'application/pdf') {
-      res.status(400).json({ message: 'Phase 3 currently supports PDF sources only' });
-      return;
-    }
+
 
     const sourceUrl = await storageService.getFileUrl(source.storageKey);
-    const aiResponse = await fetch(`${AI_SERVICE_URL}/api/generate`, {
+    const aiResponse = await fetch(`${getAiServiceUrl()}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         source_url: sourceUrl,
+        source_mime_type: source.mimeType,
         target_formats: targetFormats,
         audience,
         tone,

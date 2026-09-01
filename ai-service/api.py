@@ -25,6 +25,7 @@ logger = logging.getLogger("srijansetu-ai")
 class GenerateRequest(BaseModel):
     source_url: str = Field(min_length=1)
     target_formats: list[str] = Field(min_length=1)
+    source_mime_type: str | None = None
     audience: str | None = None
     tone: str | None = None
     detail_level: str | None = None
@@ -55,7 +56,17 @@ async def generate(request: GenerateRequest) -> dict:
         raise HTTPException(status_code=400, detail="Unsupported output format")
 
     with tempfile.TemporaryDirectory(prefix="srijansetu-source-") as temp_dir:
-        source_path = Path(temp_dir) / "source.pdf"
+        ext = ".pdf"
+        if request.source_mime_type:
+            mime = request.source_mime_type.lower()
+            if "wordprocessingml" in mime or "docx" in mime:
+                ext = ".docx"
+            elif "text/plain" in mime:
+                ext = ".txt"
+            elif "pdf" not in mime:
+                raise HTTPException(status_code=400, detail=f"Unsupported source format: {request.source_mime_type}")
+        
+        source_path = Path(temp_dir) / f"source{ext}"
         try:
             download_source(request.source_url, source_path)
             raw_text = extract_content(str(source_path))
