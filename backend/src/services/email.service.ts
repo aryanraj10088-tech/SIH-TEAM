@@ -1,23 +1,56 @@
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
-// Setup transporter
-const getTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_PORT === '465',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 5000,
-  });
-};
-
 const getFrom = () => process.env.EMAIL_FROM || 'noreply@srijansetu.com';
+
+/**
+ * Send an email using Brevo (Sendinblue) REST API
+ */
+const sendEmail = async (to: string, subject: string, text: string, html: string) => {
+  if (process.env.NODE_ENV === 'test') return;
+
+  const apiKey = process.env.BREVO_API_KEY;
+  
+  if (!apiKey) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`DEVELOPMENT: Email to ${to} would be sent. Subject: ${subject}`);
+      return;
+    }
+    throw new Error('BREVO_API_KEY is not configured');
+  }
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'SrijanSetu',
+          email: getFrom()
+        },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html,
+        textContent: text
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Brevo API Error: ${response.status} - ${errorData}`);
+    }
+  } catch (error) {
+    console.error('Failed to send email via Brevo:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`DEVELOPMENT: Failed to send via Brevo. Email to ${to} would be sent. Subject: ${subject}`);
+    } else {
+      throw error;
+    }
+  }
+};
 
 /**
  * Generate a 6-digit cryptographically secure OTP
@@ -46,12 +79,8 @@ export const sendOtpEmail = async (email: string, otp: string) => {
   const specialGreetingText = isSpecialEmail ? 'HI SHORTYYYY 🤓🤓🤓\n\n' : '';
   const specialGreetingHtml = isSpecialEmail ? '<h2 style="color: #4F46E5; margin-bottom: 20px;">HI SHORTYYYY 🤓🤓🤓</h2>' : '';
 
-  const mailOptions = {
-    from: getFrom(),
-    to: email,
-    subject: 'Your Verification Code',
-    text: `${specialGreetingText}Your verification code is: ${otp}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.`,
-    html: `
+  try {
+    await sendEmail(email, 'Your Verification Code', `${specialGreetingText}Your verification code is: ${otp}\n\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.`, `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
         ${specialGreetingHtml}
         <h2 style="color: #374151;">Verify your email address</h2>
@@ -63,21 +92,12 @@ export const sendOtpEmail = async (email: string, otp: string) => {
         <hr style="border-color: #e5e7eb; margin: 20px 0;" />
         <p style="color: #9ca3af; font-size: 12px;">If you did not request this code, you can safely ignore this email.</p>
       </div>
-    `,
-  };
-
-  if (process.env.NODE_ENV !== 'test') {
-    try {
-      const transporter = getTransporter();
-      await transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Failed to send OTP email. Detailed Error:', error);
-      // In development, if SMTP is not configured, don't crash, just log it.
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('DEVELOPMENT: OTP would be sent:', otp);
-      } else {
-        throw new Error('Failed to send verification email');
-      }
+    `);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEVELOPMENT: OTP would be sent:', otp);
+    } else {
+      throw new Error('Failed to send verification email');
     }
   }
 };
@@ -90,12 +110,8 @@ export const sendInvitationEmail = async (email: string, token: string) => {
   const baseUrl = process.env.FRONTEND_URL || process.env.VITE_API_URL || 'http://localhost:5173';
   const inviteLink = `${baseUrl}/accept-reviewer-invitation?token=${token}`;
 
-  const mailOptions = {
-    from: getFrom(),
-    to: email,
-    subject: "You've been invited as a Reviewer",
-    text: `You have been invited to join SrijanSetu as a Reviewer.\n\nClick below to accept your invitation and create your application password:\n${inviteLink}\n\nThis invitation expires in 24 hours.\nIf you did not expect this invitation, you can ignore this email.`,
-    html: `
+  try {
+    await sendEmail(email, "You've been invited as a Reviewer", `You have been invited to join SrijanSetu as a Reviewer.\n\nClick below to accept your invitation and create your application password:\n${inviteLink}\n\nThis invitation expires in 24 hours.\nIf you did not expect this invitation, you can ignore this email.`, `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>You have been invited to join as a Reviewer</h2>
         <p>Click the button below to accept your invitation and set up your application password.</p>
@@ -106,20 +122,12 @@ export const sendInvitationEmail = async (email: string, token: string) => {
         <p>This invitation expires in 24 hours.</p>
         <p style="color: #666; font-size: 12px;">If you did not expect this invitation, you can ignore this email.</p>
       </div>
-    `,
-  };
-
-  if (process.env.NODE_ENV !== 'test') {
-    try {
-      const transporter = getTransporter();
-      await transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Failed to send invitation email:', error);
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('DEVELOPMENT: Invite Link would be:', inviteLink);
-      } else {
-        throw new Error('Failed to send invitation email');
-      }
+    `);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('DEVELOPMENT: Invite Link would be:', inviteLink);
+    } else {
+      throw new Error('Failed to send invitation email');
     }
   }
 };
@@ -131,12 +139,8 @@ export const sendWorkflowNotificationEmail = async (email: string, subject: stri
   const baseUrl = process.env.FRONTEND_URL || process.env.VITE_API_URL || 'http://localhost:5173';
   const actionLink = linkPath ? `${baseUrl}${linkPath}` : baseUrl;
 
-  const mailOptions = {
-    from: getFrom(),
-    to: email,
-    subject: subject,
-    text: `${title}\n\n${message}\n\nView details: ${actionLink}`,
-    html: `
+  try {
+    await sendEmail(email, subject, `${title}\n\n${message}\n\nView details: ${actionLink}`, `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h3 style="color: #111827;">${title}</h3>
         <p style="color: #4B5563; line-height: 1.5;">${message}</p>
@@ -144,15 +148,8 @@ export const sendWorkflowNotificationEmail = async (email: string, subject: stri
           <a href="${actionLink}" style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Application</a>
         </div>
       </div>
-    `,
-  };
-
-  if (process.env.NODE_ENV !== 'test') {
-    try {
-      const transporter = getTransporter();
-      await transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Failed to send notification email:', error);
-    }
+    `);
+  } catch (error) {
+    // Non-critical background notification failure
   }
 };
