@@ -24,7 +24,7 @@ export const SourceEvidencePanel: React.FC<Props> = ({
 }) => {
   const [comment, setComment] = useState('');
   const [localStatus, setLocalStatus] = useState(outputStatus);
-  const { role, user } = useAuth();
+  const { role, accountType, user } = useAuth();
 
   const handleAction = (type: 'APPROVE' | 'REJECT' | 'SUBMIT') => {
     if (type === 'APPROVE') {
@@ -42,6 +42,7 @@ export const SourceEvidencePanel: React.FC<Props> = ({
   const isCreator = outputCreatorId ? user?._id === outputCreatorId : false;
   const isReviewer = (role === 'Reviewer' || role === 'Administrator') && !isCreator;
   const isOperator = role === 'Operator' || role === 'Administrator';
+  const isOrganization = accountType === 'ORGANIZATION';
 
   return (
     <div className="bg-gray-50 dark:bg-gray-800/60 border-t border-gray-200 dark:border-gray-700 p-4 rounded-b-xl flex flex-col md:flex-row items-center justify-between gap-4">
@@ -81,7 +82,7 @@ export const SourceEvidencePanel: React.FC<Props> = ({
           </div>
         )}
 
-        {isOperator && (localStatus === 'DRAFT' || localStatus === 'REJECTED') && (
+        {isOperator && isOrganization && (localStatus === 'DRAFT' || localStatus === 'REJECTED') && (
           <button
             onClick={() => handleAction('SUBMIT')}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors bg-blue-600 text-white hover:bg-blue-700"

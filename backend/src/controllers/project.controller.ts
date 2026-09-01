@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 import Project from '../models/Project';
 import Source from '../models/Source';
 import GeneratedOutput from '../models/GeneratedOutput';
-import AuditLog from '../models/AuditLog';
 import Notification from '../models/Notification';
+import AuditLog from '../models/AuditLog';
 import { storageService } from '../services/storage/s3.storage';
+import { sendWorkflowNotificationEmail } from '../services/email.service';
 import User from '../models/User';
 
 const getAiServiceUrl = () => {
@@ -331,6 +332,14 @@ export const addReviewer = async (req: Request, res: Response): Promise<void> =>
         message: `You have been assigned a review for project: ${project.title}`,
         link: '/pending-reviews'
       });
+
+      await sendWorkflowNotificationEmail(
+        reviewer.email,
+        'New Review Assignment',
+        'New Project Assignment',
+        `You have been assigned as a Reviewer for the project: "${project.title}".`,
+        '/pending-reviews'
+      );
     }
 
     res.status(200).json({ message: 'Reviewer assigned successfully', project });

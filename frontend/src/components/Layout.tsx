@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sun, Moon, LogOut, LayoutDashboard, FolderOpen, User, ClipboardList, ShieldAlert, BarChart3 } from 'lucide-react';
+import { Sun, Moon, LogOut, LayoutDashboard, FolderOpen, User, ClipboardList, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -117,6 +117,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     <ShieldAlert className="w-4 h-4" />
                     Assignments
                   </Link>
+                  <Link 
+                    to="/admin/reviewers" 
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/admin/reviewers' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                  >
+                    <Users className="w-4 h-4" />
+                    Reviewers
+                  </Link>
                 </>
               )}
             </div>
@@ -202,6 +209,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               >
                 <ShieldAlert className="w-5 h-5" />
                 <span className="text-[10px] font-medium">Assign</span>
+              </Link>
+              <Link 
+                to="/admin/reviewers" 
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${location.pathname === '/admin/reviewers' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                <Users className="w-5 h-5" />
+                <span className="text-[10px] font-medium">Reviewers</span>
               </Link>
             </>
           )}

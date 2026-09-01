@@ -4,6 +4,8 @@ import GeneratedOutput from '../models/GeneratedOutput';
 import AuditLog from '../models/AuditLog';
 import Project from '../models/Project';
 import Notification from '../models/Notification';
+import User from '../models/User';
+import { sendWorkflowNotificationEmail } from '../services/email.service';
 
 // Helper to check project ownership
 const checkProjectOwnership = async (projectId: string, userId: string | undefined) => {
@@ -135,6 +137,11 @@ export const editContent = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (output.status === 'PENDING_REVIEW') {
+      res.status(400).json({ message: 'Cannot edit an output while it is under review' });
+      return;
+    }
+
     if (output.createdBy.toString() !== req.user?._id?.toString()) {
       res.status(403).json({ message: 'Cannot edit an output you did not create' });
       return;
@@ -203,13 +210,24 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
     });
 
     if (project && project.assignedReviewers && project.assignedReviewers.length > 0) {
-      const notifications = project.assignedReviewers.map(reviewerId => ({
-        userId: reviewerId,
+      const reviewers = await User.find({ _id: { $in: project.assignedReviewers } });
+      const notifications = reviewers.map(reviewer => ({
+        userId: reviewer._id,
         type: 'OUTPUT_SUBMITTED',
         message: `An output in project "${project.title}" has been submitted for review.`,
         link: '/pending-reviews'
       }));
       await Notification.insertMany(notifications);
+
+      for (const reviewer of reviewers) {
+        await sendWorkflowNotificationEmail(
+          reviewer.email,
+          'Output Submitted for Review',
+          'Review Required',
+          `An output in project "${project.title}" has been submitted and is waiting for your review.`,
+          '/pending-reviews'
+        );
+      }
     }
 
     res.status(200).json(output);
@@ -341,6 +359,17 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
       message: `Your output in project "${project.title}" was ${action === 'approve' ? 'approved' : 'rejected'}.`,
       link: `/outputs/${output._id}`
     });
+
+    const creator = await User.findById(output.createdBy);
+    if (creator) {
+      await sendWorkflowNotificationEmail(
+        creator.email,
+        `Output ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+        `Output ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+        `Your output in project "${project.title}" was ${action === 'approve' ? 'approved' : 'rejected'}.`,
+        `/outputs/${output._id}`
+      );
+    }
 
     res.status(200).json(output);
   } catch (err: any) {

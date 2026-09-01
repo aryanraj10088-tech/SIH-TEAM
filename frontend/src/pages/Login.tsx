@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Sparkles, ShieldCheck, Mail, Lock, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -135,6 +135,13 @@ const Login = () => {
             </button>
           </div>
         </form>
+
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+          Don't have an account?{' '}
+          <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   );

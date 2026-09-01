@@ -51,7 +51,7 @@ import outputRoutes from './routes/output.routes';
 import userRoutes from './routes/user.routes';
 import notificationRoutes from './routes/notification.routes';
 import adminRoutes from './routes/admin.routes';
-
+import reviewerRoutes from './routes/reviewer.routes';
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
@@ -61,9 +61,11 @@ app.use('/api/projects/:id/sources', sourceRoutes);
 app.use('/api/outputs', outputRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/reviewer', reviewerRoutes);
 
 // Error Handling
 app.use(notFound);
 app.use(errorHandler);
 
 export default app;
+// Trigger restart

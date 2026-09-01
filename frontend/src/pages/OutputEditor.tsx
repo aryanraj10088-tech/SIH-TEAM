@@ -16,7 +16,7 @@ export const OutputEditor = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editNote, setEditNote] = useState('');
-  const { role, user } = useAuth();
+  const { role, accountType, user } = useAuth();
   const { lastUpdateTimestamp } = useNotifications();
   
   const fetchOutput = async () => {
@@ -123,7 +123,7 @@ export const OutputEditor = () => {
             >
               <Save className="w-4 h-4" /> Save Draft
             </button>
-            {output.status !== 'PENDING_REVIEW' && (
+            {output.status !== 'PENDING_REVIEW' && accountType === 'ORGANIZATION' && (
               <button
                 onClick={handleSubmitForReview}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
@@ -209,13 +209,15 @@ export const OutputEditor = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <ReviewPanel 
-            outputId={output._id} 
-            status={output.status} 
-            comments={output.reviewerComments} 
-            outputCreatorId={output.createdBy?._id}
-            onReviewAction={handleReviewAction} 
-          />
+          {accountType === 'ORGANIZATION' && (
+            <ReviewPanel 
+              outputId={output._id} 
+              status={output.status} 
+              comments={output.reviewerComments} 
+              outputCreatorId={output.createdBy?._id}
+              onReviewAction={handleReviewAction} 
+            />
+          )}
           <EvidencePanel 
             citations={output.content.citations || []} 
             // In a real app we'd fetch groundedness from AuditLog or store it in GeneratedOutput directly. 

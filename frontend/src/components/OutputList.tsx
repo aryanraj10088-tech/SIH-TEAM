@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { outputsApi } from '../api/outputs';
 import { FileText, CheckCircle, Clock, AlertTriangle, XCircle, Search } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface OutputListProps {
   projectId: string;
 }
@@ -10,6 +12,7 @@ interface OutputListProps {
 export const OutputList = ({ projectId }: OutputListProps) => {
   const [outputs, setOutputs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { accountType } = useAuth();
 
   useEffect(() => {
     const fetchOutputs = async () => {
@@ -79,7 +82,7 @@ export const OutputList = ({ projectId }: OutputListProps) => {
             className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors font-medium text-sm"
           >
             <Search className="w-4 h-4" />
-            Open Editor / Review
+            {accountType === 'ORGANIZATION' ? 'Open Editor / Review' : 'Open Editor'}
           </Link>
         </div>
       ))}

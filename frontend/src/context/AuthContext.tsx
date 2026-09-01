@@ -6,11 +6,13 @@ interface User {
   name: string;
   email: string;
   role: 'Operator' | 'Reviewer' | 'Administrator';
+  accountType: 'INDIVIDUAL' | 'ORGANIZATION';
 }
 
 interface AuthContextType {
   user: User | null;
   role: string | null;
+  accountType: string | null;
   loading: boolean;
   setUser: (user: User | null) => void;
   logout: () => Promise<void>;
@@ -51,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, role: user?.role || null, loading, setUser, logout }}>
+    <AuthContext.Provider value={{ user, role: user?.role || null, accountType: user?.accountType || null, loading, setUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

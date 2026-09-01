@@ -17,5 +17,23 @@ export const adminApi = {
       withCredentials: true
     });
     return data;
+  },
+  getReviewers: async () => {
+    const { data } = await axios.get(`${API_URL}/admin/reviewers`, {
+      withCredentials: true
+    });
+    return data;
+  },
+  inviteReviewer: async (payload: { name: string, email: string }) => {
+    const { data } = await axios.post(`${API_URL}/admin/reviewers/invite`, payload, {
+      withCredentials: true
+    });
+    return data;
+  },
+  resendInvitation: async (id: string) => {
+    const { data } = await axios.post(`${API_URL}/admin/reviewers/${id}/resend-invitation`, {}, {
+      withCredentials: true
+    });
+    return data;
   }
 };

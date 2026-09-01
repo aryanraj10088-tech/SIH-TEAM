@@ -11,12 +11,18 @@ import { PendingReviews } from './pages/PendingReviews';
 import { Layout } from './components/Layout';
 import { AdminAssignments } from './pages/AdminAssignments';
 import { SystemDashboard } from './pages/SystemDashboard';
+import { Signup } from './pages/Signup';
+import { AcceptInvitation } from './pages/AcceptInvitation';
+import { ReviewerManagement } from './pages/ReviewerManagement';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/accept-reviewer-invitation" element={<AcceptInvitation />} />
         <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
         <Route path="/projects" element={<Layout><Projects /></Layout>} />
         <Route path="/projects/:id" element={<Layout><ProjectDetails /></Layout>} />
@@ -24,9 +30,11 @@ function App() {
         <Route path="/pending-reviews" element={<Layout><PendingReviews /></Layout>} />
         <Route path="/admin/dashboard" element={<Layout><SystemDashboard /></Layout>} />
         <Route path="/admin/assignments" element={<Layout><AdminAssignments /></Layout>} />
+        <Route path="/admin/reviewers" element={<Layout><ReviewerManagement /></Layout>} />
         <Route path="/profile" element={<Layout><Profile /></Layout>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      <Toaster position="top-right" />
     </Router>
   );
 }

@@ -6,6 +6,14 @@ export interface IUser extends Document {
   passwordHash: string;
   name: string;
   role: 'Operator' | 'Reviewer' | 'Administrator';
+  accountType: 'INDIVIDUAL' | 'ORGANIZATION';
+  isEmailVerified: boolean;
+  accountStatus: 'PENDING' | 'ACTIVE' | 'DISABLED';
+  otpHash?: string;
+  otpExpiry?: Date;
+  otpAttempts: number;
+  invitationTokenHash?: string;
+  invitationExpiry?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -19,6 +27,22 @@ const userSchema = new Schema<IUser>(
       enum: ['Operator', 'Reviewer', 'Administrator'],
       default: 'Operator',
     },
+    accountType: {
+      type: String,
+      enum: ['INDIVIDUAL', 'ORGANIZATION'],
+      default: 'INDIVIDUAL',
+    },
+    isEmailVerified: { type: Boolean, default: true }, // Default true so existing users aren't broken
+    accountStatus: {
+      type: String,
+      enum: ['PENDING', 'ACTIVE', 'DISABLED'],
+      default: 'ACTIVE',
+    },
+    otpHash: { type: String },
+    otpExpiry: { type: Date },
+    otpAttempts: { type: Number, default: 0 },
+    invitationTokenHash: { type: String },
+    invitationExpiry: { type: Date },
   },
   { timestamps: true }
 );
