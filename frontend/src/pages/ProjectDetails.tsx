@@ -216,7 +216,7 @@ export const ProjectDetails = () => {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {source.mimeType === 'application/pdf' && canMutate && (
+                          {canMutate && (
                             <button
                               type="button"
                               onClick={() => {
