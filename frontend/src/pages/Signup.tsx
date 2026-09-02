@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../api/auth';
-import { Mail, Lock, User as UserIcon, Loader2, Sparkles, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, Sparkles, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<'details' | 'otp'>('details');
+  const { setUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -17,75 +18,35 @@ export const Signup: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(30);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (step === 'otp' && countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [step, countdown]);
 
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     setLoading(true);
     try {
-      await authApi.signup({
+      // Signup now returns { _id, name, email, role } with JWT cookie set
+      const user = await authApi.signup({
         name: formData.name,
         email: formData.email,
         password: formData.password,
         accountType: formData.accountType
       });
-      toast.success('Verification code sent to your email');
-      setStep('otp');
-      setCountdown(30);
+
+      // Log the user in immediately — same pattern as Login.tsx
+      setUser(user);
+      toast.success(`Welcome to SrijanSetu, ${user.name}!`);
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    if (otp.length !== 6) {
-      setError('Please enter a 6-digit verification code');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      await authApi.verifyOtp({ email: formData.email, otp });
-      toast.success('Email verified successfully! You can now log in.');
-      navigate('/login');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Verification failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    try {
-      await authApi.resendOtp({ email: formData.email });
-      toast.success('New verification code sent');
-      setCountdown(30);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to resend code');
     }
   };
 
@@ -106,14 +67,10 @@ export const Signup: React.FC = () => {
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            {step === 'details' ? 'Create Account' : 'Verify Email'}
+            Create Account
           </h2>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5">
-            {step === 'details' ? (
-              <>Join <span className="font-bold text-gray-800 dark:text-gray-200">SrijanSetu</span> Workspace</>
-            ) : (
-              <>Enter the 6-digit code sent to <span className="font-bold text-gray-800 dark:text-gray-200">{formData.email}</span></>
-            )}
+            <>Join <span className="font-bold text-gray-800 dark:text-gray-200">SrijanSetu</span> Workspace</>
           </p>
         </div>
 
@@ -124,189 +81,170 @@ export const Signup: React.FC = () => {
           </div>
         )}
 
-        {step === 'details' ? (
-          <>
-            <form onSubmit={handleDetailsSubmit} className="space-y-5">
-              
-              {/* Account Type Toggle */}
-              <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, accountType: 'INDIVIDUAL' })}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                    formData.accountType === 'INDIVIDUAL' 
-                      ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  Personal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, accountType: 'ORGANIZATION' })}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                    formData.accountType === 'ORGANIZATION' 
-                      ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  Organisation
-                </button>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="John Doe"
-                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="you@example.com"
-                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Password</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-12 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Confirm Password</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                  </div>
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    required
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-12 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="group w-full flex items-center justify-center gap-2 py-3 px-4 font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:from-indigo-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      Continue
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
-                Sign in
-              </Link>
-            </p>
-          </>
-        ) : (
-          <form onSubmit={handleOtpSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 text-center">
-                6-Digit Verification Code
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                className="w-full text-center tracking-[0.5em] text-3xl font-mono py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white transition-all outline-none"
-                placeholder="000000"
-              />
+        <>
+          <form onSubmit={handleDetailsSubmit} className="space-y-5">
+            
+            {/* Account Type Toggle */}
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, accountType: 'INDIVIDUAL' })}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  formData.accountType === 'INDIVIDUAL' 
+                    ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Personal
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, accountType: 'ORGANIZATION' })}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  formData.accountType === 'ORGANIZATION' 
+                    ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Organisation
+              </button>
             </div>
 
-            <div className="pt-2 space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <UserIcon className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Password</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-12 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Confirm Password</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                </div>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-12 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-3">
+              {/* Primary CTA — email/password signup */}
               <button
                 type="submit"
-                disabled={loading || otp.length !== 6}
+                disabled={loading}
                 className="group w-full flex items-center justify-center gap-2 py-3 px-4 font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 hover:from-indigo-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    Verify Email
-                    <ShieldCheck className="w-4 h-4 ml-1" />
+                    Continue
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
 
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={loading || countdown > 0}
-                  className="text-sm font-semibold text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors disabled:opacity-50"
-                >
-                  {countdown > 0 ? `Resend OTP in ${countdown}s` : "Didn't receive a code? Resend"}
-                </button>
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                <span className="text-xs font-medium text-gray-400 dark:text-gray-500">or</span>
+                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
               </div>
+
+              {/* Google Sign-up button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+                  window.location.href = `${backendUrl}/api/auth/google`;
+                }}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200"
+              >
+                {/* Google Logo SVG */}
+                <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                  <path fill="none" d="M0 0h48v48H0z"/>
+                </svg>
+                <span>Sign up with Google</span>
+              </button>
             </div>
           </form>
-        )}
+
+          <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
+              Sign in
+            </Link>
+          </p>
+        </>
       </div>
     </div>
   );

@@ -1,9 +1,16 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import passport from 'passport';
+
+// Initialize Google OAuth passport strategy
+import './config/passport';
 
 import authRoutes from './routes/auth.routes';
 import healthRoutes from './routes/health.routes';
@@ -39,6 +46,9 @@ app.use('/api', limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Passport middleware (stateless — no session needed for JWT)
+app.use(passport.initialize());
 
 // Logging Middleware
 if (process.env.NODE_ENV === 'development') {

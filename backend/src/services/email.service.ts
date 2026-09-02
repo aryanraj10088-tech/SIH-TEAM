@@ -1,21 +1,77 @@
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 const getFrom = () => process.env.EMAIL_FROM || 'noreply@srijansetu.com';
 
+const logMockEmail = (to: string, subject: string, text: string) => {
+  console.log(`\n[DEV MAIL] To: ${to}`);
+  console.log(`[DEV MAIL] Subject: ${subject}`);
+  console.log(`[DEV MAIL] Body: ${text.replace(/\n/g, ' | ')}`);
+};
+
+const sendViaSmtp = async (to: string, subject: string, text: string, html: string) => {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: Number(process.env.SMTP_PORT || 587) === 465,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+  });
+
+  await transporter.sendMail({
+    from: getFrom(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  return true;
+};
+
 /**
- * Send an email using Brevo (Sendinblue) REST API
+ * Send an email using Brevo (Sendinblue) REST API, with SMTP fallback
  */
 const sendEmail = async (to: string, subject: string, text: string, html: string) => {
   if (process.env.NODE_ENV === 'test') return;
 
+  const hasSmtpCredentials = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const hasBrevoApiKey = !!process.env.BREVO_API_KEY;
+  const mockEmailEnabled = process.env.MAIL_MODE === 'mock' || process.env.NODE_ENV === 'development';
+
+  if (process.env.NODE_ENV === 'development' && !hasSmtpCredentials && !hasBrevoApiKey) {
+    logMockEmail(to, subject, text);
+    return;
+  }
+
+  if (process.env.NODE_ENV === 'development' && process.env.MAIL_MODE !== 'real') {
+    logMockEmail(to, subject, text);
+    return;
+  }
+
   const apiKey = process.env.BREVO_API_KEY;
-  
+
   if (!apiKey) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`DEVELOPMENT: Email to ${to} would be sent. Subject: ${subject}`);
-      return;
+    console.warn(`BREVO_API_KEY is missing. Trying SMTP fallback for ${to}.`);
+    const smtpSent = await sendViaSmtp(to, subject, text, html);
+    if (!smtpSent) {
+      if (process.env.NODE_ENV === 'development' && mockEmailEnabled) {
+        logMockEmail(to, subject, text);
+        return;
+      }
+      throw new Error('BREVO_API_KEY is not configured and no SMTP fallback is available');
     }
-    throw new Error('BREVO_API_KEY is not configured');
+    return;
   }
 
   try {
@@ -42,13 +98,27 @@ const sendEmail = async (to: string, subject: string, text: string, html: string
       const errorData = await response.text();
       throw new Error(`Brevo API Error: ${response.status} - ${errorData}`);
     }
+
+    return;
   } catch (error) {
     console.error('Failed to send email via Brevo:', error);
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`DEVELOPMENT: Failed to send via Brevo. Email to ${to} would be sent. Subject: ${subject}`);
-    } else {
-      throw error;
+
+    const smtpSent = await sendViaSmtp(to, subject, text, html).catch((smtpError) => {
+      console.error('SMTP fallback also failed:', smtpError);
+      return false;
+    });
+
+    if (smtpSent) {
+      return;
     }
+
+    if (process.env.NODE_ENV === 'development' && process.env.MAIL_MODE !== 'real') {
+      console.warn(`DEVELOPMENT: SMTP send failed for ${to}, falling back to local mock OTP flow.`);
+      logMockEmail(to, subject, text);
+      return;
+    }
+
+    throw error;
   }
 };
 
@@ -93,12 +163,15 @@ export const sendOtpEmail = async (email: string, otp: string) => {
         <p style="color: #9ca3af; font-size: 12px;">If you did not request this code, you can safely ignore this email.</p>
       </div>
     `);
-  } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('DEVELOPMENT: OTP would be sent:', otp);
-    } else {
-      throw new Error('Failed to send verification email');
+      console.log(`[DEV OTP] OTP for ${email}: ${otp}`);
     }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development' && process.env.MAIL_MODE !== 'real') {
+      console.warn(`DEVELOPMENT: SMTP send failed, but local OTP flow is active. OTP for ${email}: ${otp}`);
+      return;
+    }
+    throw new Error('Failed to send verification email');
   }
 };
 
