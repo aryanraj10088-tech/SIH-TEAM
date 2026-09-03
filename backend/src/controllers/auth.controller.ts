@@ -3,7 +3,6 @@ import User from '../models/User';
 import AuditLog from '../models/AuditLog';
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
-import { encryptPII, decryptPII, hashEmail } from '../utils/encryption';
 import { generateToken } from '../utils/generateToken';
 // OTP imports commented out — signup no longer requires email verification.
 // Preserved here so they can be restored by simply uncommenting.
@@ -33,14 +32,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   try {
-    const hashed = hashEmail(email);
-    // Find by plaintext email OR hashed email (for backwards compatibility)
-    const user = await User.findOne({ 
-      $or: [
-        { email: email.toLowerCase() },
-        { email: hashed }
-      ]
-    });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (user && (await user.comparePassword(password))) {
       if (!user.isEmailVerified) {
@@ -54,13 +46,28 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
       generateToken(res, (user._id as any).toString(), user.role);
 
+      await AuditLog.create({
+        entityType: 'User',
+        entityId: user._id,
+        action: 'LOGIN_SUCCESS',
+        performedBy: user._id,
+        metadata: { ip: req.ip, userAgent: req.get('User-Agent') }
+      });
+
       res.json({
         _id: user._id,
         name: user.name,
-        email: user.encryptedEmail ? decryptPII(user.encryptedEmail) : user.email,
+        email: user.email,
         role: user.role,
       });
     } else {
+      await AuditLog.create({
+        entityType: 'User',
+        entityId: user ? user._id : undefined,
+        action: 'LOGIN_FAILED',
+        performedBy: user ? user._id : undefined,
+        metadata: { email, ip: req.ip, userAgent: req.get('User-Agent'), reason: 'Invalid credentials' }
+      });
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error: any) {
@@ -68,8 +75,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const logout = (req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response): Promise<void> => {
   const isProduction = process.env.NODE_ENV === 'production';
+
+  if (req.user) {
+    await AuditLog.create({
+      entityType: 'User',
+      entityId: (req.user as any)._id,
+      action: 'LOGOUT',
+      performedBy: (req.user as any)._id,
+      metadata: { ip: req.ip }
+    });
+  }
 
   res.cookie('jwt', '', {
     httpOnly: true,
@@ -85,10 +102,6 @@ export const me = async (req: Request, res: Response): Promise<void> => {
     const user = await User.findById(req.user?._id).select('-passwordHash');
     if (user) {
       const userData = user.toObject();
-      if (userData.encryptedEmail) {
-        userData.email = decryptPII(userData.encryptedEmail);
-        delete userData.encryptedEmail;
-      }
       res.json(userData);
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -124,13 +137,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   const { name, email, password, accountType, organizationName } = req.body;
 
   try {
-    const hashed = hashEmail(email);
-    let user = await User.findOne({
-      $or: [
-        { email: email.toLowerCase() },
-        { email: hashed }
-      ]
-    });
+    let user = await User.findOne({ email: email.toLowerCase() });
 
     if (user) {
       res.status(400).json({ message: 'User already exists' });
@@ -152,7 +159,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     if (accountType === 'ORGANIZATION') {
       const org = await Organization.findOne({ name: { $regex: new RegExp(`^${organizationName}$`, 'i') } });
       if (!org) {
-        // First user becomes Admin
+        // Creating a new organization makes you an active Administrator
         finalRole = 'Administrator';
         finalStatus = 'ACTIVE';
       } else {
@@ -167,8 +174,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     user = await User.create({
       name,
-      email: isOrg ? hashed : email.toLowerCase(),
-      encryptedEmail: isOrg ? encryptPII(email) : undefined,
+      email: email.toLowerCase(),
       passwordHash,
       role: finalRole,
       accountType: isOrg ? 'ORGANIZATION' : 'INDIVIDUAL',
@@ -179,7 +185,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       organizationId: finalOrgId
     });
 
-    if (accountType === 'ORGANIZATION' && finalRole === 'Administrator' && !finalOrgId) {
+    if (accountType === 'ORGANIZATION' && finalStatus === 'ACTIVE' && !finalOrgId) {
       const newOrg = await Organization.create({
         name: organizationName,
         adminId: user._id

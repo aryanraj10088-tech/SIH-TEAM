@@ -45,7 +45,9 @@ export const ProjectDetails = () => {
 
   const [generatingSourceId, setGeneratingSourceId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
+  const [generatingFormats, setGeneratingFormats] = useState<string[]>([]);
   const [generatedResults, setGeneratedResults] = useState<Record<string, GeneratedResult> | null>(null);
+  const [refreshOutputs, setRefreshOutputs] = useState(0);
   const [activeTab, setActiveTab] = useState<'sources' | 'outputs'>('sources');
   const [selectedSourceForGeneration, setSelectedSourceForGeneration] = useState<Source | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -79,6 +81,11 @@ export const ProjectDetails = () => {
     setError(null);
 
     const { targetFormats, audience, tone, detailLevel, objective, language } = configFromModal;
+    
+    setGeneratingFormats(targetFormats);
+    // Close modal immediately so user sees inline progress
+    setIsConfigOpen(false);
+    setActiveTab('outputs');
 
     const attemptGeneration = async (retryCount = 0): Promise<void> => {
       try {
@@ -102,10 +109,9 @@ export const ProjectDetails = () => {
           { withCredentials: true, timeout: 120000 } // Wait up to 120s for Render free tier proxy
         );
 
-        setGeneratedResults(data.results);
+        setGeneratedResults(prev => ({ ...(prev || {}), ...data.results }));
+        setRefreshOutputs(prev => prev + 1);
         setSelectedSourceForGeneration(null);
-        setIsConfigOpen(false);
-        setActiveTab('outputs');
       } catch (err: any) {
         // If timeout, 502, or 504, the AI service might be waking up
         const isNetworkError = !err.response || err.response.status === 504 || err.response.status === 502 || err.code === 'ECONNABORTED';
@@ -125,8 +131,20 @@ export const ProjectDetails = () => {
     } finally {
       setGeneratingSourceId(null);
       setGenerationStatus(null);
-      // setIsConfigOpen(false); // Only close on success, or user can manually close on error
+      // We do not clear generatingFormats here, they remain to show final status
     }
+  };
+
+  const handleRetryFormat = (formatId: string) => {
+    if (!selectedSourceForGeneration) return;
+    executeGeneration({
+      targetFormats: [formatId],
+      audience: 'Executive', // Would ideally preserve previous config, using defaults for retry
+      tone: 'Professional',
+      detailLevel: 'Standard',
+      objective: 'Briefing',
+      language: 'English'
+    });
   };
 
   const deleteSource = async (sourceId: string) => {
@@ -253,7 +271,47 @@ export const ProjectDetails = () => {
             ) : (
               <div>
                 <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Generated Outputs History</h2>
-                <OutputList projectId={project._id} />
+                
+                {/* Generation Progress Inline Panel */}
+                {(generatingSourceId !== null || (generatingFormats.length > 0 && generatedResults)) && (
+                  <div className="mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 shadow-sm">
+                    <h3 className="text-md font-bold mb-3 flex items-center gap-2 text-gray-900 dark:text-white">
+                      {generatingSourceId !== null ? <Loader2 className="w-5 h-5 animate-spin text-indigo-500" /> : <CheckCircle className="w-5 h-5 text-green-500" />}
+                      {generatingSourceId !== null ? 'Generating Outputs...' : 'Generation Complete'}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {generatingFormats.map(format => {
+                        const result = generatedResults?.[format];
+                        const isError = result && ('error' in result || (result.content && 'error' in result.content));
+                        const isSuccess = result && !isError;
+                        const isPending = generatingSourceId !== null && !result;
+
+                        return (
+                          <div key={format} className={`flex items-center justify-between p-3 border rounded-lg ${isError ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20' : isSuccess ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800'}`}>
+                            <div className="flex items-center gap-2">
+                              {isPending && <Loader2 className="w-4 h-4 animate-spin text-gray-500" />}
+                              {isSuccess && <CheckCircle className="w-4 h-4 text-green-500" />}
+                              {isError && <AlertTriangle className="w-4 h-4 text-red-500" />}
+                              <span className="text-sm font-medium capitalize text-gray-700 dark:text-gray-300">
+                                {format.replace('_', ' ')}
+                              </span>
+                            </div>
+                            {isError && (
+                              <button
+                                onClick={() => handleRetryFormat(format)}
+                                className="text-xs font-semibold text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                              >
+                                Retry
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <OutputList projectId={project._id} refreshTrigger={refreshOutputs} />
               </div>
             )}
           </div>
@@ -269,11 +327,13 @@ export const ProjectDetails = () => {
         )}
       </div>
 
-      {generatedResults && (
+      {generatedResults && Object.keys(generatedResults).some(k => !generatedResults[k]?.content?.error) && (
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-sm p-6 space-y-8 mt-8">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Just Generated: Content Review</h2>
           <div className="space-y-8">
-            {Object.entries(generatedResults).map(([format, result]) => (
+            {Object.entries(generatedResults)
+              .filter(([_, result]) => !result.content?.error)
+              .map(([format, result]) => (
               <article key={format} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
                 <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                   <h3 className="font-bold capitalize text-gray-800 dark:text-gray-200">{format} Output</h3>

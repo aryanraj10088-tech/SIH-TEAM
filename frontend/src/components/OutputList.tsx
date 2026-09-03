@@ -7,9 +7,10 @@ import { useAuth } from '../context/AuthContext';
 
 interface OutputListProps {
   projectId: string;
+  refreshTrigger?: number;
 }
 
-export const OutputList = ({ projectId }: OutputListProps) => {
+export const OutputList = ({ projectId, refreshTrigger = 0 }: OutputListProps) => {
   const [outputs, setOutputs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { accountType } = useAuth();
@@ -26,7 +27,7 @@ export const OutputList = ({ projectId }: OutputListProps) => {
       }
     };
     fetchOutputs();
-  }, [projectId]);
+  }, [projectId, refreshTrigger]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

@@ -60,7 +60,7 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/api/generate")
 async def generate(request: GenerateRequest) -> dict:
-    supported_formats = {"summary", "linkedin", "video", "advisory", "x_thread"}
+    supported_formats = {"summary", "linkedin", "video", "advisory", "x_thread", "presentation", "infographic"}
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 

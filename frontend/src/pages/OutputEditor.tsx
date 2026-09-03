@@ -6,6 +6,9 @@ import { EvidencePanel } from '../components/EvidencePanel';
 import { VersionHistory } from '../components/VersionHistory';
 import { ReviewPanel } from '../components/ReviewPanel';
 import { XThreadEditor } from '../components/XThreadEditor';
+import { VideoEditor } from '../components/VideoEditor';
+import { PresentationEditor } from '../components/PresentationEditor';
+import { InfographicEditor } from '../components/InfographicEditor';
 import { useNotifications } from '../context/NotificationContext';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 
@@ -144,6 +147,24 @@ export const OutputEditor = () => {
             <div className="space-y-6">
               {output.format === 'x_thread' ? (
                 <XThreadEditor 
+                  content={editedContent} 
+                  onChange={handleFieldChange} 
+                  canEdit={canEdit} 
+                />
+              ) : output.format === 'video' ? (
+                <VideoEditor
+                  content={editedContent} 
+                  onChange={handleFieldChange} 
+                  canEdit={canEdit} 
+                />
+              ) : output.format === 'presentation' ? (
+                <PresentationEditor
+                  content={editedContent} 
+                  onChange={handleFieldChange} 
+                  canEdit={canEdit} 
+                />
+              ) : output.format === 'infographic' ? (
+                <InfographicEditor
                   content={editedContent} 
                   onChange={handleFieldChange} 
                   canEdit={canEdit} 

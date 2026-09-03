@@ -6,8 +6,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
 import passport from 'passport';
+import { globalLimiter } from './middlewares/rateLimit.middleware';
 
 // Initialize Google OAuth passport strategy
 import './config/passport';
@@ -34,13 +34,7 @@ app.use(cors({
 }));
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Increased to 1000 to prevent Dashboard N+1 API calls from rate limiting users
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api', limiter);
+app.use('/api', globalLimiter);
 
 // Parsing Middleware
 app.use(express.json());

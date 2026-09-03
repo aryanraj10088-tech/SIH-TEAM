@@ -1,6 +1,6 @@
 // src/components/GenerationConfigModal.tsx
 import React, { useState } from 'react';
-import { Sparkles, X, FileText, Film, Users, MessageSquare, BarChart2, Globe, Target, Loader2, ExternalLink, ShieldAlert } from 'lucide-react';
+import { Sparkles, X, FileText, Film, Users, MessageSquare, BarChart2, Globe, Target, Loader2, ExternalLink, ShieldAlert, Presentation, PieChart } from 'lucide-react';
 
 export interface GenerationConfig {
   targetFormats: string[];
@@ -25,6 +25,8 @@ const FORMAT_OPTIONS = [
   { id: 'x_thread', label: 'X/Twitter Thread', icon: MessageSquare },
   { id: 'video', label: 'Video Script', icon: Film },
   { id: 'advisory', label: 'Advisory', icon: ShieldAlert },
+  { id: 'presentation', label: 'Presentation', icon: Presentation },
+  { id: 'infographic', label: 'Infographic', icon: PieChart },
 ];
 
 export const GenerationConfigModal: React.FC<Props> = ({ isOpen, onClose, onGenerate, isGenerating, generationStatus }) => {

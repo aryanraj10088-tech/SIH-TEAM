@@ -11,14 +11,17 @@ import {
   googleCallback,
 } from '../controllers/auth.controller';
 import { protect } from '../middlewares/auth.middleware';
+import { loginLimiter } from '../middlewares/rateLimit.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { loginSchema, signupSchema } from '../schemas';
 
 const router = Router();
 
 // ── Email / Password ──────────────────────────────────────────────────────────
-router.post('/signup', signup);
+router.post('/signup', validate(signupSchema), signup);
 // router.post('/verify-otp', verifyOtp);  // OTP step removed from signup flow
 // router.post('/resend-otp', resendOtp);  // OTP step removed from signup flow
-router.post('/login', login);
+router.post('/login', loginLimiter, validate(loginSchema), login);
 router.post('/logout', logout);
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────

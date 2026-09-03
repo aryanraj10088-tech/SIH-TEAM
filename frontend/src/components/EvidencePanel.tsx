@@ -1,55 +1,62 @@
-import { FileText, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
 
-interface Citation {
-  chunk_id: string;
+export interface Citation {
+  chunk_id?: string;
   supporting_text: string;
+  claim_supported?: string;
+  source_name?: string;
 }
 
 interface EvidencePanelProps {
-  citations: Citation[];
-  groundednessScore?: number;
+  citations?: Citation[];
+  title?: string;
+  compact?: boolean;
 }
 
-export const EvidencePanel = ({ citations, groundednessScore }: EvidencePanelProps) => {
+export const EvidencePanel: React.FC<EvidencePanelProps> = ({ citations, title = "Source Evidence", compact = false }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (!citations || citations.length === 0) return null;
+
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-lg">
-        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-indigo-500" />
-          Source Evidence
-        </h3>
-        {groundednessScore !== undefined && (
-          <div className="mt-2 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">Groundedness Score: </span>
-            <span className={`font-medium ${groundednessScore > 0.8 ? 'text-green-600' : 'text-yellow-600'}`}>
-              {Math.round(groundednessScore * 100)}%
-            </span>
-          </div>
-        )}
-      </div>
+    <div className={`mt-2 mb-2 border border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800 rounded-lg overflow-hidden ${compact ? 'text-xs' : 'text-sm'}`}>
+      <button 
+        onClick={() => setExpanded(!expanded)} 
+        className="w-full px-4 py-2 flex justify-between items-center bg-blue-100/50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+      >
+        <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          {title} ({citations.length} supported {citations.length === 1 ? 'claim' : 'claims'})
+        </span>
+        <svg className={`w-4 h-4 text-blue-600 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+      </button>
       
-      <div className="p-4 flex-1 overflow-y-auto space-y-4 max-h-[600px]">
-        {!citations || citations.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-            No citations available for this output.
-          </p>
-        ) : (
-          citations.map((citation, idx) => (
-            <div key={idx} className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  {citation.chunk_id.substring(0, 8)}...
-                </span>
+      {expanded && (
+        <div className="p-4 space-y-3">
+          {citations.map((cite, idx) => (
+            <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700 shadow-sm">
+              {cite.claim_supported && (
+                <div className="mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+                  <strong className="text-gray-900 dark:text-gray-100 block text-xs uppercase tracking-wider mb-1">Generated Claim</strong>
+                  <p className="text-gray-800 dark:text-gray-200">{cite.claim_supported}</p>
+                </div>
+              )}
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded border-l-2 border-blue-400">
+                <strong className="text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wider mb-1">
+                  Source Evidence {cite.chunk_id ? `(Chunk ID: ${cite.chunk_id})` : ''}
+                </strong>
+                <p className="text-gray-600 dark:text-gray-300 italic">"{cite.supporting_text}"</p>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 italic border-l-2 border-indigo-300 dark:border-indigo-700 pl-3">
-                "{citation.supporting_text}"
-              </p>
+              {cite.source_name && (
+                <p className="mt-2 text-xs text-gray-400 block text-right font-mono">Source: {cite.source_name}</p>
+              )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+          <p className="text-[10px] text-gray-400 mt-2 text-center">
+            * This evidence was retrieved from the RAG pipeline during generation. It is read-only. Editing the content above will not automatically update these source references.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
-

@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import { Projects } from './pages/Projects';
@@ -24,16 +25,19 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/accept-reviewer-invitation" element={<AcceptInvitation />} />
-        <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/projects" element={<Layout><Projects /></Layout>} />
-        <Route path="/projects/:id" element={<Layout><ProjectDetails /></Layout>} />
-        <Route path="/outputs/:id" element={<Layout><OutputEditor /></Layout>} />
-        <Route path="/pending-reviews" element={<Layout><PendingReviews /></Layout>} />
-        <Route path="/admin/dashboard" element={<Layout><SystemDashboard /></Layout>} />
-        <Route path="/admin/assignments" element={<Layout><AdminAssignments /></Layout>} />
-        <Route path="/admin/reviewers" element={<Layout><ReviewerManagement /></Layout>} />
-        <Route path="/admin/pending-users" element={<Layout><PendingUsers /></Layout>} />
-        <Route path="/profile" element={<Layout><Profile /></Layout>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/projects" element={<ProtectedRoute allowedRoles={['Operator', 'Administrator']}><Layout><Projects /></Layout></ProtectedRoute>} />
+        <Route path="/projects/:id" element={<ProtectedRoute allowedRoles={['Operator', 'Administrator']}><Layout><ProjectDetails /></Layout></ProtectedRoute>} />
+        <Route path="/outputs/:id" element={<ProtectedRoute allowedRoles={['Operator', 'Reviewer', 'Administrator']}><Layout><OutputEditor /></Layout></ProtectedRoute>} />
+        <Route path="/pending-reviews" element={<ProtectedRoute allowedRoles={['Reviewer', 'Administrator']}><Layout><PendingReviews /></Layout></ProtectedRoute>} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['Administrator']}><Layout><SystemDashboard /></Layout></ProtectedRoute>} />
+        <Route path="/admin/assignments" element={<ProtectedRoute allowedRoles={['Administrator']}><Layout><AdminAssignments /></Layout></ProtectedRoute>} />
+        <Route path="/admin/reviewers" element={<ProtectedRoute allowedRoles={['Administrator']}><Layout><ReviewerManagement /></Layout></ProtectedRoute>} />
+        <Route path="/admin/pending-users" element={<ProtectedRoute allowedRoles={['Administrator']}><Layout><PendingUsers /></Layout></ProtectedRoute>} />
+        
+        <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       <Toaster position="top-right" />

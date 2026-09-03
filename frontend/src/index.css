@@ -73,4 +73,10 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Hide the native eye button in Edge/Chrome since we use custom lucide icons */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+      display: none;
+  }
 }
