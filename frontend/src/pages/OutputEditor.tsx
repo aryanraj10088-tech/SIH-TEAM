@@ -17,7 +17,7 @@ export const OutputEditor = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editNote, setEditNote] = useState('');
-  const { role, accountType, user } = useAuth();
+  const { role, user } = useAuth();
   const { lastUpdateTimestamp } = useNotifications();
   
   const fetchOutput = async () => {

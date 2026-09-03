@@ -8,7 +8,7 @@ export const authApi = {
    * user object immediately — no OTP step required.
    * Response: { _id, name, email, role }
    */
-  signup: async (data: { name: string; email: string; password: string; accountType: string }) => {
+  signup: async (data: { name: string; email: string; password: string; accountType: string; organizationName?: string }) => {
     const response = await axios.post(`${API_URL}/auth/signup`, data, { withCredentials: true });
     return response.data;
   },
