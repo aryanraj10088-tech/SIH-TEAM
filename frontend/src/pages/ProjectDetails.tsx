@@ -6,6 +6,7 @@ import { UploadComponent } from '../components/UploadComponent';
 import { SummaryView } from '../components/SummaryView';
 import { LinkedInView } from '../components/LinkedInView';
 import { AdvisoryView } from '../components/AdvisoryView';
+import { XThreadEditor } from '../components/XThreadEditor';
 import { GenerationConfigModal, type GenerationConfig } from '../components/GenerationConfigModal';
 import { OutputList } from '../components/OutputList';
 import { SourceEvidencePanel } from '../components/SourceEvidencePanel';
@@ -288,6 +289,12 @@ export const ProjectDetails = () => {
                     <LinkedInView data={result.content as any} />
                   ) : format === 'advisory' ? (
                     <AdvisoryView data={result.content as any} />
+                  ) : format === 'x_thread' ? (
+                    <XThreadEditor 
+                      content={result.content} 
+                      onChange={() => {}} 
+                      canEdit={false} 
+                    />
                   ) : (
                     <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 overflow-auto max-h-96">
                       {JSON.stringify(result.content, null, 2)}

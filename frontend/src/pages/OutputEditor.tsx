@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { EvidencePanel } from '../components/EvidencePanel';
 import { VersionHistory } from '../components/VersionHistory';
 import { ReviewPanel } from '../components/ReviewPanel';
+import { XThreadEditor } from '../components/XThreadEditor';
 import { useNotifications } from '../context/NotificationContext';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 
@@ -123,7 +124,7 @@ export const OutputEditor = () => {
             >
               <Save className="w-4 h-4" /> Save Draft
             </button>
-            {output.status !== 'PENDING_REVIEW' && accountType === 'ORGANIZATION' && (
+            {output.status !== 'PENDING_REVIEW' && (
               <button
                 onClick={handleSubmitForReview}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
@@ -141,48 +142,56 @@ export const OutputEditor = () => {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Content Fields</h2>
             <div className="space-y-6">
-              {editedContent && Object.entries(editedContent).map(([key, value]) => {
-                if (key === 'citations' || key === 'generated_images' || key === 'image_prompts') return null; // Handled separately or read-only
+              {output.format === 'x_thread' ? (
+                <XThreadEditor 
+                  content={editedContent} 
+                  onChange={handleFieldChange} 
+                  canEdit={canEdit} 
+                />
+              ) : (
+                editedContent && Object.entries(editedContent).map(([key, value]) => {
+                  if (key === 'citations' || key === 'generated_images' || key === 'image_prompts') return null;
 
-                if (typeof value === 'string') {
-                  return (
-                    <div key={key}>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize mb-2">
-                        {key.replace('_', ' ')}
-                      </label>
-                      <textarea
-                        value={value}
-                        onChange={(e) => handleFieldChange(key, e.target.value)}
-                        disabled={!canEdit}
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 dark:text-white disabled:opacity-75 min-h-[100px]"
-                      />
-                    </div>
-                  );
-                }
-
-                if (Array.isArray(value) && typeof value[0] === 'string') {
-                  return (
-                    <div key={key}>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize mb-2">
-                        {key.replace('_', ' ')}
-                      </label>
-                      <div className="space-y-3">
-                        {value.map((item, idx) => (
-                          <textarea
-                            key={idx}
-                            value={item}
-                            onChange={(e) => handleArrayChange(key, idx, e.target.value)}
-                            disabled={!canEdit}
-                            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 dark:text-white disabled:opacity-75 min-h-[80px]"
-                          />
-                        ))}
+                  if (typeof value === 'string') {
+                    return (
+                      <div key={key}>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize mb-2">
+                          {key.replace('_', ' ')}
+                        </label>
+                        <textarea
+                          value={value}
+                          onChange={(e) => handleFieldChange(key, e.target.value)}
+                          disabled={!canEdit}
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 dark:text-white disabled:opacity-75 min-h-[100px]"
+                        />
                       </div>
-                    </div>
-                  );
-                }
+                    );
+                  }
 
-                return null;
-              })}
+                  if (Array.isArray(value) && typeof value[0] === 'string') {
+                    return (
+                      <div key={key}>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 capitalize mb-2">
+                          {key.replace('_', ' ')}
+                        </label>
+                        <div className="space-y-3">
+                          {value.map((item, idx) => (
+                            <textarea
+                              key={idx}
+                              value={item as string}
+                              onChange={(e) => handleArrayChange(key, idx, e.target.value)}
+                              disabled={!canEdit}
+                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-gray-900 dark:text-white disabled:opacity-75 min-h-[80px]"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })
+              )}
             </div>
             
             {canEdit && (
@@ -209,15 +218,14 @@ export const OutputEditor = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {accountType === 'ORGANIZATION' && (
-            <ReviewPanel 
-              outputId={output._id} 
-              status={output.status} 
-              comments={output.reviewerComments} 
-              outputCreatorId={output.createdBy?._id}
-              onReviewAction={handleReviewAction} 
-            />
-          )}
+          {/* Review Panel always visible to Reviewers and Admins via internal canReview check */}
+          <ReviewPanel 
+            outputId={output._id} 
+            status={output.status} 
+            comments={output.reviewerComments} 
+            outputCreatorId={output.createdBy?._id}
+            onReviewAction={handleReviewAction} 
+          />
           <EvidencePanel 
             citations={output.content.citations || []} 
             // In a real app we'd fetch groundedness from AuditLog or store it in GeneratedOutput directly. 

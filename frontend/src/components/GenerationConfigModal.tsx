@@ -22,6 +22,7 @@ interface Props {
 const FORMAT_OPTIONS = [
   { id: 'summary', label: 'Summary', icon: FileText },
   { id: 'linkedin', label: 'LinkedIn', icon: ExternalLink },
+  { id: 'x_thread', label: 'X/Twitter Thread', icon: MessageSquare },
   { id: 'video', label: 'Video Script', icon: Film },
   { id: 'advisory', label: 'Advisory', icon: ShieldAlert },
 ];

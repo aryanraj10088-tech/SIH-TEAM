@@ -7,11 +7,15 @@ import {
   submitForReview, 
   addComment, 
   reviewOutput,
-  getPendingReviews
+  getPendingReviews,
+  serveImage
 } from '../controllers/output.controller';
 import { protect, authorize } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+// Allow image serving via capability key without auth so img tags work cleanly
+router.get('/image/serve', serveImage);
 
 router.use(protect);
 

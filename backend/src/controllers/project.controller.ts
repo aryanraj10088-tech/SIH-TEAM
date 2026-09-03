@@ -233,6 +233,22 @@ export const generateProjectContent = async (req: Request, res: Response): Promi
     // Persist to MongoDB
     if (payload.results) {
       for (const [format, data] of Object.entries(payload.results as Record<string, any>)) {
+        
+        // Post-process generated images (e.g. from x_thread)
+        if (format === 'x_thread' && data.content?.thread_tweets) {
+          for (const tweet of data.content.thread_tweets) {
+            if (tweet.generated_image_b64) {
+              const buffer = Buffer.from(tweet.generated_image_b64, 'base64');
+              const key = `generated-images/${project._id}-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+              await storageService.uploadFile(buffer, key, { mimeType: 'image/jpeg' });
+              
+              tweet.image_storage_key = key;
+              // Remove the heavy base64 string before saving to DB
+              delete tweet.generated_image_b64;
+            }
+          }
+        }
+
         const output = await GeneratedOutput.create({
           projectId: project._id,
           sourceId: source._id,

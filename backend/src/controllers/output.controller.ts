@@ -6,6 +6,7 @@ import Project from '../models/Project';
 import Notification from '../models/Notification';
 import User from '../models/User';
 import { sendWorkflowNotificationEmail } from '../services/email.service';
+import { storageService } from '../services/storage/s3.storage';
 
 // Helper to check project ownership
 const checkProjectOwnership = async (projectId: string, userId: string | undefined) => {
@@ -119,8 +120,43 @@ export const getOutputById = async (req: Request, res: Response): Promise<void> 
        res.status(403).json({ message: 'Not authorized to access this output' });
        return;
     }
+    // For x_thread outputs, inline images as base64 data URLs so the browser renders them without any separate network request
+    let outputObj: any = output.toObject();
+    if (outputObj.format === 'x_thread' && Array.isArray(outputObj.content?.thread_tweets)) {
+      const https = await import('https');
+      
+      const fetchAsBase64 = (url: string): Promise<string | null> => {
+        return new Promise((resolve) => {
+          https.default.get(url, { rejectUnauthorized: false } as any, (s3Res: any) => {
+            if (s3Res.statusCode !== 200) { resolve(null); return; }
+            const chunks: Buffer[] = [];
+            s3Res.on('data', (d: Buffer) => chunks.push(d));
+            s3Res.on('end', () => {
+              const b64 = Buffer.concat(chunks).toString('base64');
+              const contentType = s3Res.headers['content-type'] || 'image/jpeg';
+              resolve(`data:${contentType};base64,${b64}`);
+            });
+            s3Res.on('error', () => resolve(null));
+          }).on('error', () => resolve(null));
+        });
+      };
+
+      await Promise.all(outputObj.content.thread_tweets.map(async (tweet: any) => {
+        if (tweet.image_storage_key) {
+          try {
+            const presignedUrl = await storageService.getFileUrl(tweet.image_storage_key);
+            const dataUrl = await fetchAsBase64(presignedUrl);
+            if (dataUrl) tweet.image_data_url = dataUrl;
+          } catch (_) {}
+        }
+      }));
+      
+      res.status(200).json(outputObj);
+      return;
+    }
 
     res.status(200).json(output);
+
   } catch (err: any) {
     res.status(500).json({ message: 'Error fetching output details' });
   }
@@ -473,5 +509,41 @@ export const getPendingReviews = async (req: Request, res: Response): Promise<vo
     res.status(200).json(pendingOutputs);
   } catch (err: any) {
     res.status(500).json({ message: 'Error fetching pending reviews' });
+  }
+};
+
+
+import https from 'https';
+
+export const serveImage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { key } = req.query;
+    if (!key || typeof key !== 'string') {
+      res.status(400).json({ message: 'Missing image key' });
+      return;
+    }
+    
+    // Get pre-signed URL from S3
+    const url = await storageService.getFileUrl(key);
+    
+    // Proxy the image using native https to bypass strict SSL MITM firewalls on this network
+    https.get(url, { rejectUnauthorized: false }, (s3Res) => {
+      if (s3Res.statusCode !== 200) {
+        res.status(s3Res.statusCode || 500).json({ message: 'Failed to fetch image from S3' });
+        return;
+      }
+      
+      res.setHeader('Content-Type', s3Res.headers['content-type'] || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      
+      s3Res.pipe(res);
+    }).on('error', (err) => {
+      console.error('serveImage proxy error:', err);
+      res.status(500).json({ message: 'Failed to stream image' });
+    });
+    
+  } catch (err) {
+    console.error('serveImage pre-proxy error:', err);
+    res.status(500).json({ message: 'Failed to generate image URL' });
   }
 };
