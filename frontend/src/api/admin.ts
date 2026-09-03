@@ -35,5 +35,23 @@ export const adminApi = {
       withCredentials: true
     });
     return data;
+  },
+  getPendingUsers: async () => {
+    const { data } = await axios.get(`${API_URL}/admin/pending-users`, {
+      withCredentials: true
+    });
+    return data;
+  },
+  approveUser: async (id: string, role: string) => {
+    const { data } = await axios.post(`${API_URL}/admin/pending-users/${id}/approve`, { role }, {
+      withCredentials: true
+    });
+    return data;
+  },
+  rejectUser: async (id: string) => {
+    const { data } = await axios.post(`${API_URL}/admin/pending-users/${id}/reject`, {}, {
+      withCredentials: true
+    });
+    return data;
   }
 };

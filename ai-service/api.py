@@ -33,15 +33,24 @@ class GenerateRequest(BaseModel):
     language: str | None = None
 
 
+import requests
+
 def download_source(source_url: str, destination: Path) -> None:
-    request = Request(source_url, headers={"User-Agent": "SrijanSetu-AI-Service/1.0"})
-    with urlopen(request, timeout=60) as response, destination.open("wb") as output:
-        total = 0
-        while chunk := response.read(1024 * 1024):
-            total += len(chunk)
-            if total > 10 * 1024 * 1024:
-                raise ValueError("Source exceeds the 10MB processing limit")
-            output.write(chunk)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept": "*/*"
+    }
+    
+    with requests.get(source_url, headers=headers, stream=True, timeout=60) as response:
+        response.raise_for_status()
+        with destination.open("wb") as output:
+            total = 0
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    total += len(chunk)
+                    if total > 10 * 1024 * 1024:
+                        raise ValueError("Source exceeds the 10MB processing limit")
+                    output.write(chunk)
 
 
 @app.get("/health")
@@ -51,7 +60,7 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/api/generate")
 async def generate(request: GenerateRequest) -> dict:
-    supported_formats = {"summary", "linkedin", "video", "advisory"}
+    supported_formats = {"summary", "linkedin", "video", "advisory", "x_thread"}
     if any(output_format not in supported_formats for output_format in request.target_formats):
         raise HTTPException(status_code=400, detail="Unsupported output format")
 

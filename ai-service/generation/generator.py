@@ -4,11 +4,13 @@ import asyncio
 from pydantic import BaseModel
 
 from generation.providers import GroqProvider
+from generation.image_generator import generate_image
 from generation.schemas import (
     ExecutiveSummaryOutput,
     LinkedInPostOutput,
     AdvisoryOutput,
-    VideoPackageOutput
+    VideoPackageOutput,
+    XThreadOutput
 )
 
 # Initialize the default LLM provider
@@ -95,6 +97,26 @@ def _get_schema_instruction(schema_name: str) -> str:
     ],
     "global_pacing": "Description of the overall vibe: energetic, slow-build, dramatic, etc."
 }""",
+        "XThreadOutput": """REQUIRED JSON OUTPUT FORMAT (return ONLY valid JSON, no other text):
+{
+    "hook_tweet": "Opening hook tweet to stop scroll (max 280 chars)",
+    "thread_tweets": [
+        {
+            "order": 1,
+            "text": "First body tweet (max 280 chars)",
+            "suggested_visual": "Bar chart comparing X vs Y from source data"
+        }
+    ],
+    "closing_tweet": "Closing tweet with one clear CTA (max 280 chars)",
+    "suggested_hashtags": ["#Topic1", "#Topic2"],
+    "best_posting_window_note": "A short note about posting time",
+    "citations": [
+        {
+            "chunk_id": "1",
+            "supporting_text": "Direct evidence from the source"
+        }
+    ]
+}""",
     }
     return schemas.get(schema_name, "")
 
@@ -164,11 +186,43 @@ async def generate_all_formats(
         )
         tasks["video"] = generate_single_format(prompt, VideoPackageOutput)
 
+    if "x_thread" in target_formats:
+        prompt = (
+            f"Create a highly engaging X/Twitter Thread based ONLY on these chunks.\n"
+            f"RULES:\n"
+            f"- Hook tweet: lead with the single most surprising/valuable fact from the source. Never use generic intros like 'Let's talk about...'.\n"
+            f"- One idea per tweet. Vary tweet length/rhythm (mix short punchy tweets with slightly longer ones).\n"
+            f"- Closing tweet must have exactly one clear CTA.\n"
+            f"- NO clickbait that misrepresents the source document. Every factual claim must be backed by the source.\n"
+            f"- suggested_visuals should only be generated where a chart/image genuinely helps, based strictly on source data.\n\n"
+            f"Context:\n{formatted_context}{config_str}\n\n"
+            f"Return ONLY this exact JSON structure (no extra fields):\n{_get_schema_instruction('XThreadOutput')}"
+            f"{language_reminder}"
+        )
+        tasks["x_thread"] = generate_single_format(prompt, XThreadOutput)
+
     keys = list(tasks.keys())
     try:
         # Run all LLM generation tasks concurrently
         results = await asyncio.gather(*tasks.values())
+        
+        out_dict = dict(zip(keys, results))
+        
+        # Post-process: Generate images for x_thread if requested
+        if "x_thread" in out_dict:
+            thread_output = out_dict["x_thread"]
+            
+            # Find up to 2 tweets that have a suggested visual
+            visual_tweets = [t for t in thread_output.thread_tweets if t.suggested_visual and len(t.suggested_visual.strip()) > 5]
+            
+            # Fetch image generations sequentially to avoid 429 Rate Limits from free providers
+            for t in visual_tweets[:2]:
+                b64 = await generate_image(t.suggested_visual)
+                if b64:
+                    t.generated_image_b64 = b64
+                # Small delay to be polite to the free API
+                await asyncio.sleep(1.5)
+
+        return out_dict
     except Exception as e:
         raise e
-
-    return dict(zip(keys, results))

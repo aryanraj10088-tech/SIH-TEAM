@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 # Add this new import at the very top of schemas.py if it's not there
 from typing import List
 
@@ -38,3 +38,17 @@ class AdvisoryOutput(BaseModel):
     executive_summary: str = Field(description="Brief overview of the key advisory findings")
     recommendations: List[str] = Field(description="Key actionable recommendations")
     action_items: List[str] = Field(description="Immediate operational next steps")
+
+class XThreadTweet(BaseModel):
+    order: int = Field(description="Sequential tweet number starting from 1")
+    text: str = Field(description="Tweet text (max 280 chars), varying length for rhythm")
+    suggested_visual: str | None = Field(description="A short description of what image/chart/screenshot would strengthen this specific tweet, only where supported by data. Null if none.")
+    generated_image_b64: str | None = Field(default=None, description="Base64 encoded generated image, if available")
+
+class XThreadOutput(BaseModel):
+    hook_tweet: str = Field(description="The opening tweet, written to stop scroll: a strong claim, surprising stat, or question pulled from the source document (max 280 chars).")
+    thread_tweets: List[XThreadTweet] = Field(description="List of chronological tweets forming the body of the thread")
+    closing_tweet: str = Field(description="Closing tweet with exactly one clear call-to-action (max 280 chars)")
+    suggested_hashtags: List[str] = Field(description="Exactly 2-3 relevant hashtags. Do not over-tag.")
+    best_posting_window_note: str = Field(description="Short, honest guidance on posting, e.g. 'Threads with data tend to get more engagement when posted on weekdays'")
+    citations: List[Citation] = Field(description="Citations supporting the factual claims made in the thread")

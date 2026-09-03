@@ -118,6 +118,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     Assignments
                   </Link>
                   <Link 
+                    to="/admin/pending-users" 
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/admin/pending-users' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                  >
+                    <User className="w-4 h-4" />
+                    Pending Users
+                  </Link>
+                  <Link 
                     to="/admin/reviewers" 
                     className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${location.pathname === '/admin/reviewers' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                   >

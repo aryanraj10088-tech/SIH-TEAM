@@ -100,10 +100,20 @@ export const getOutputById = async (req: Request, res: Response): Promise<void> 
     const isPendingReview = output.status === 'PENDING_REVIEW';
     const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
 
+    let hasReviewerAccess = false;
+    if (req.user?.accountType === 'ORGANIZATION') {
+      const outputCreator = await User.findById(output.createdBy);
+      if (outputCreator && outputCreator.organizationId?.toString() === req.user.organizationId?.toString()) {
+        hasReviewerAccess = true;
+      }
+    } else if (isAssignedReviewer) {
+      hasReviewerAccess = true;
+    }
+
     // The core privacy logic
     if (isOwner) {
        // Owner can always see their own output
-    } else if (canReview && isAssignedReviewer && isPendingReview) {
+    } else if (canReview && hasReviewerAccess && isPendingReview) {
        // Assigned reviewer/admin can only see it if it's explicitly submitted for review
     } else {
        res.status(403).json({ message: 'Not authorized to access this output' });
@@ -194,8 +204,8 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    if (output.status !== 'DRAFT') {
-      res.status(400).json({ message: 'Only DRAFT outputs can be submitted for review' });
+    if (output.status !== 'DRAFT' && output.status !== 'REJECTED') {
+      res.status(400).json({ message: 'Only DRAFT or REJECTED outputs can be submitted for review' });
       return;
     }
 
@@ -209,22 +219,42 @@ export const submitForReview = async (req: Request, res: Response): Promise<void
       performedBy: req.user?._id
     });
 
-    if (project && project.assignedReviewers && project.assignedReviewers.length > 0) {
-      const reviewers = await User.find({ _id: { $in: project.assignedReviewers } });
-      const notifications = reviewers.map(reviewer => ({
+    let reviewersToNotify: any[] = [];
+
+    if (req.user?.accountType === 'ORGANIZATION' && req.user?.organizationId) {
+      reviewersToNotify = await User.find({ 
+        organizationId: req.user.organizationId,
+        role: 'Reviewer',
+        accountStatus: 'ACTIVE'
+      });
+    } else if (project && project.assignedReviewers && project.assignedReviewers.length > 0) {
+      reviewersToNotify = await User.find({ _id: { $in: project.assignedReviewers } });
+    }
+
+    if (reviewersToNotify.length > 0) {
+      const operatorName = req.user?.name || 'an operator';
+      const notifications = reviewersToNotify.map(reviewer => ({
         userId: reviewer._id,
         type: 'OUTPUT_SUBMITTED',
-        message: `An output in project "${project.title}" has been submitted for review.`,
+        message: `New content submitted for review by ${operatorName}`,
         link: '/pending-reviews'
       }));
       await Notification.insertMany(notifications);
 
-      for (const reviewer of reviewers) {
+      for (const reviewer of reviewersToNotify) {
+        // Safe check for decrypted email if applicable, though for emails we use plaintext or decrypt it
+        // The reviewer.email returned from db is plaintext for system use if not using getter, wait, we hashed it!
+        // So we need to decrypt it to send emails.
+        let emailAddress = reviewer.email;
+        if (reviewer.encryptedEmail) {
+           const { decryptPII } = require('../utils/encryption');
+           emailAddress = decryptPII(reviewer.encryptedEmail);
+        }
         await sendWorkflowNotificationEmail(
-          reviewer.email,
+          emailAddress,
           'Output Submitted for Review',
           'Review Required',
-          `An output in project "${project.title}" has been submitted and is waiting for your review.`,
+          `New content submitted for review by ${operatorName} in project "${project?.title || 'Unknown'}".`,
           '/pending-reviews'
         );
       }
@@ -263,9 +293,19 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
     const isPendingReview = output.status === 'PENDING_REVIEW';
     const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
 
+    let hasReviewerAccess = false;
+    if (req.user?.accountType === 'ORGANIZATION') {
+      const outputCreator = await User.findById(output.createdBy);
+      if (outputCreator && outputCreator.organizationId?.toString() === req.user.organizationId?.toString()) {
+        hasReviewerAccess = true;
+      }
+    } else if (isAssignedReviewer) {
+      hasReviewerAccess = true;
+    }
+
     if (isOwner) {
        // Owner can comment
-    } else if (canReview && isAssignedReviewer && isPendingReview) {
+    } else if (canReview && hasReviewerAccess && isPendingReview) {
        // Reviewer can comment
     } else {
        res.status(403).json({ message: 'Not authorized to comment on this output' });
@@ -323,8 +363,18 @@ export const reviewOutput = async (req: Request, res: Response): Promise<void> =
     const isAssignedReviewer = project.assignedReviewers?.some(id => id.toString() === userId);
     const canReview = ['Administrator', 'Reviewer'].includes(req.user?.role || '');
     
-    if (!canReview || !isAssignedReviewer) {
-      res.status(403).json({ message: 'You are not assigned as a Reviewer for this project' });
+    let hasAccess = false;
+    if (req.user?.accountType === 'ORGANIZATION') {
+      const outputCreator = await User.findById(output.createdBy);
+      if (outputCreator && outputCreator.organizationId?.toString() === req.user.organizationId?.toString()) {
+        hasAccess = true;
+      }
+    } else if (isAssignedReviewer) {
+      hasAccess = true;
+    }
+
+    if (!canReview || !hasAccess) {
+      res.status(403).json({ message: 'You are not authorized to review this output' });
       return;
     }
 
@@ -387,24 +437,38 @@ export const getPendingReviews = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Admins and Reviewers both must be EXPLICITLY ASSIGNED to see pending reviews
     if (!['Administrator', 'Reviewer'].includes(role || '')) {
       res.status(403).json({ message: 'Not authorized to view pending reviews' });
       return;
     }
 
-    const projectFilter = { assignedReviewers: userId };
+    let pendingOutputs = [];
 
-    const projects = await Project.find(projectFilter).select('_id');
-    const projectIds = projects.map(p => p._id);
+    if (req.user?.accountType === 'ORGANIZATION' && req.user?.organizationId) {
+      // Find users in the same org
+      const orgUsers = await User.find({ organizationId: req.user.organizationId }).select('_id');
+      const userIds = orgUsers.map(u => u._id);
+      
+      pendingOutputs = await GeneratedOutput.find({
+        createdBy: { $in: userIds },
+        status: 'PENDING_REVIEW'
+      })
+        .sort({ updatedAt: -1 })
+        .populate('projectId', 'title')
+        .populate('createdBy', 'name email');
+    } else {
+      // Fallback for personal accounts using legacy project.assignedReviewers
+      const projects = await Project.find({ assignedReviewers: userId }).select('_id');
+      const projectIds = projects.map(p => p._id);
 
-    const pendingOutputs = await GeneratedOutput.find({
-      projectId: { $in: projectIds },
-      status: 'PENDING_REVIEW'
-    })
-      .sort({ updatedAt: -1 })
-      .populate('projectId', 'title')
-      .populate('createdBy', 'name email');
+      pendingOutputs = await GeneratedOutput.find({
+        projectId: { $in: projectIds },
+        status: 'PENDING_REVIEW'
+      })
+        .sort({ updatedAt: -1 })
+        .populate('projectId', 'title')
+        .populate('createdBy', 'name email');
+    }
 
     res.status(200).json(pendingOutputs);
   } catch (err: any) {

@@ -14,7 +14,8 @@ export const Signup: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    accountType: 'INDIVIDUAL'
+    accountType: 'INDIVIDUAL',
+    organizationName: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -36,7 +37,8 @@ export const Signup: React.FC = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        accountType: formData.accountType
+        accountType: formData.accountType,
+        organizationName: formData.accountType === 'ORGANIZATION' ? formData.organizationName : undefined
       });
 
       // Log the user in immediately — same pattern as Login.tsx
@@ -109,6 +111,25 @@ export const Signup: React.FC = () => {
                 Organisation
               </button>
             </div>
+
+            {formData.accountType === 'ORGANIZATION' && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Organization Name</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <UserIcon className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={formData.organizationName}
+                    onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
+                    placeholder="Acme Corp"
+                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all outline-none"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>

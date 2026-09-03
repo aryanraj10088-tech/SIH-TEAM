@@ -36,3 +36,19 @@ export const authorize = (...roles: string[]) => {
     }
   };
 };
+
+export const requireSameOrg = (req: Request, res: Response, next: NextFunction): void => {
+  const targetOrgId = req.body.organizationId || req.query.organizationId;
+  
+  if (!req.user || req.user.accountType !== 'ORGANIZATION') {
+    next();
+    return;
+  }
+
+  if (targetOrgId && targetOrgId !== req.user.organizationId?.toString()) {
+    res.status(403).json({ message: 'Not authorized for this organization' });
+    return;
+  }
+  
+  next();
+};

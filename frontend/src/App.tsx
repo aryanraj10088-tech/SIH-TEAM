@@ -14,6 +14,7 @@ import { SystemDashboard } from './pages/SystemDashboard';
 import { Signup } from './pages/Signup';
 import { AcceptInvitation } from './pages/AcceptInvitation';
 import { ReviewerManagement } from './pages/ReviewerManagement';
+import { PendingUsers } from './pages/PendingUsers';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
         <Route path="/admin/dashboard" element={<Layout><SystemDashboard /></Layout>} />
         <Route path="/admin/assignments" element={<Layout><AdminAssignments /></Layout>} />
         <Route path="/admin/reviewers" element={<Layout><ReviewerManagement /></Layout>} />
+        <Route path="/admin/pending-users" element={<Layout><PendingUsers /></Layout>} />
         <Route path="/profile" element={<Layout><Profile /></Layout>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>

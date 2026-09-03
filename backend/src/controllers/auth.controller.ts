@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import User from '../models/User';
 import AuditLog from '../models/AuditLog';
 import bcrypt from 'bcrypt';
+import mongoose from 'mongoose';
+import { encryptPII, decryptPII, hashEmail } from '../utils/encryption';
 import { generateToken } from '../utils/generateToken';
 // OTP imports commented out — signup no longer requires email verification.
 // Preserved here so they can be restored by simply uncommenting.
@@ -31,7 +33,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    const hashed = hashEmail(email);
+    // Find by plaintext email OR hashed email (for backwards compatibility)
+    const user = await User.findOne({ 
+      $or: [
+        { email: email.toLowerCase() },
+        { email: hashed }
+      ]
+    });
 
     if (user && (await user.comparePassword(password))) {
       if (!user.isEmailVerified) {
@@ -48,7 +57,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.json({
         _id: user._id,
         name: user.name,
-        email: user.email,
+        email: user.encryptedEmail ? decryptPII(user.encryptedEmail) : user.email,
         role: user.role,
       });
     } else {
@@ -75,7 +84,12 @@ export const me = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.user?._id).select('-passwordHash');
     if (user) {
-      res.json(user);
+      const userData = user.toObject();
+      if (userData.encryptedEmail) {
+        userData.email = decryptPII(userData.encryptedEmail);
+        delete userData.encryptedEmail;
+      }
+      res.json(userData);
     } else {
       res.status(404).json({ message: 'User not found' });
     }
@@ -103,31 +117,87 @@ export const getRecentActivity = async (req: Request, res: Response): Promise<vo
   }
 };
 
+import Organization from '../models/Organization';
+import Notification from '../models/Notification'; // Assuming Notification model exists
+
 export const signup = async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, accountType } = req.body;
+  const { name, email, password, accountType, organizationName } = req.body;
 
   try {
-    let user = await User.findOne({ email });
+    const hashed = hashEmail(email);
+    let user = await User.findOne({
+      $or: [
+        { email: email.toLowerCase() },
+        { email: hashed }
+      ]
+    });
 
     if (user) {
       res.status(400).json({ message: 'User already exists' });
       return;
     }
 
+    if (accountType === 'ORGANIZATION' && !organizationName) {
+      res.status(400).json({ message: 'Organization name is required' });
+      return;
+    }
+
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    let finalRole: 'Operator' | 'Reviewer' | 'Administrator' = 'Operator';
+    let finalStatus: 'PENDING' | 'ACTIVE' | 'DISABLED' = 'ACTIVE';
+    let finalOrgId: mongoose.Types.ObjectId | undefined = undefined;
+
+    if (accountType === 'ORGANIZATION') {
+      const org = await Organization.findOne({ name: { $regex: new RegExp(`^${organizationName}$`, 'i') } });
+      if (!org) {
+        // First user becomes Admin
+        finalRole = 'Administrator';
+        finalStatus = 'ACTIVE';
+      } else {
+        // Subsequent users become Operator and PENDING approval
+        finalRole = 'Operator';
+        finalStatus = 'PENDING';
+        finalOrgId = org._id as mongoose.Types.ObjectId;
+      }
+    }
+
+    const isOrg = accountType === 'ORGANIZATION';
+
     user = await User.create({
       name,
-      email,
+      email: isOrg ? hashed : email.toLowerCase(),
+      encryptedEmail: isOrg ? encryptPII(email) : undefined,
       passwordHash,
-      role: 'Operator',
-      accountType: accountType === 'ORGANIZATION' ? 'ORGANIZATION' : 'INDIVIDUAL',
-      isEmailVerified: true,   // Verified immediately — no OTP step
-      accountStatus: 'ACTIVE', // Active immediately — no pending state
+      role: finalRole,
+      accountType: isOrg ? 'ORGANIZATION' : 'INDIVIDUAL',
+      isEmailVerified: true,
+      accountStatus: finalStatus,
       authProvider: 'local',
       otpAttempts: 0,
+      organizationId: finalOrgId
     });
+
+    if (accountType === 'ORGANIZATION' && finalRole === 'Administrator' && !finalOrgId) {
+      const newOrg = await Organization.create({
+        name: organizationName,
+        adminId: user._id
+      });
+      user.organizationId = newOrg._id as any;
+      await user.save();
+    } else if (accountType === 'ORGANIZATION' && finalOrgId) {
+      // Notify Admin
+      const org = await Organization.findById(finalOrgId);
+      if (org) {
+        await Notification.create({
+          userId: org.adminId,
+          type: 'NEW_USER_SIGNUP',
+          message: `${name} has requested to join ${org.name}. Please approve their account.`,
+          isRead: false
+        });
+      }
+    }
 
     await AuditLog.create({
       entityType: 'User',
@@ -136,13 +206,25 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       performedBy: user._id,
     });
 
+    // If they are pending, do not log them in automatically.
+    if (finalStatus === 'PENDING') {
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email, // Return original unhashed email
+        role: user.role,
+        message: 'Signup successful. Please wait for admin approval.'
+      });
+      return;
+    }
+
     // Issue JWT cookie immediately — user is logged in right after signup
     generateToken(res, (user._id as any).toString(), user.role);
 
     res.status(201).json({
       _id: user._id,
       name: user.name,
-      email: user.email,
+      email, // Return original unhashed email
       role: user.role,
     });
   } catch (error: any) {

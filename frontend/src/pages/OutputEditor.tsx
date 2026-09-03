@@ -90,7 +90,7 @@ export const OutputEditor = () => {
   const isCreator = output.createdBy?._id === user?._id;
   const isOperator = role === 'Operator' && isCreator;
   const isAdmin = role === 'Administrator';
-  const canEdit = (isOperator || isAdmin) && output.status !== 'APPROVED';
+  const canEdit = (isOperator || isAdmin) && (output.status === 'DRAFT' || output.status === 'REJECTED');
   
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">

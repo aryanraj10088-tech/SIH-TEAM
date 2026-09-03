@@ -17,6 +17,8 @@ export interface IUser extends Document {
   // Google OAuth fields (safe defaults — won't break existing users)
   authProvider: 'local' | 'google';
   googleId?: string;
+  organizationId?: mongoose.Types.ObjectId;
+  encryptedEmail?: string;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -55,6 +57,8 @@ const userSchema = new Schema<IUser>(
     },
     // Sparse index: only indexed when set, allows multiple null values
     googleId: { type: String, sparse: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', sparse: true },
+    encryptedEmail: { type: String },
   },
   { timestamps: true }
 );
